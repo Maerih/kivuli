@@ -14,9 +14,21 @@ UNIT="kivuli-dockerd"
 HOST_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 DAEMON_RUNTIME_DIR="$HOST_RUNTIME_DIR/kivuli"
 
-export PATH="$RT/bin:$PATH"
-export DOCKER_CONFIG="$RT/config"
-export DOCKER_HOST="unix://$DAEMON_RUNTIME_DIR/docker.sock"
+# Which Docker to use. "system": the Docker already installed on this machine (the
+# usual choice on a server). "rootless": a private copy kept in .runtime/, needing
+# no installation. Chosen automatically; force one with KIVULI_DOCKER=system|rootless.
+MODE="${KIVULI_DOCKER:-}"
+if [ -z "$MODE" ]; then
+	if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then MODE=system; else MODE=rootless; fi
+fi
+if [ "$MODE" = rootless ]; then
+	export PATH="$RT/bin:$PATH"
+	export DOCKER_CONFIG="$RT/config"
+	export DOCKER_HOST="unix://$DAEMON_RUNTIME_DIR/docker.sock"
+	LEGACY_BUILD="DOCKER_BUILDKIT=0"  # the private copy ships without buildx
+else
+	LEGACY_BUILD="KIVULI_BUILD=1"
+fi
 
 cd "$ROOT"
 
@@ -51,6 +63,12 @@ runtime_install() {
 
 daemon_start() {
 	daemon_up && return 0
+	if [ "$MODE" = system ]; then
+		echo "Docker is installed but this user cannot use it (or the service is stopped)." >&2
+		echo "  Start it:            sudo systemctl enable --now docker" >&2
+		echo "  Allow your user:     sudo usermod -aG docker $(id -un)   then log out and back in" >&2
+		exit 1
+	fi
 	runtime_install
 	echo "Starting rootless Docker daemon..."
 	mkdir -p "$DAEMON_RUNTIME_DIR" "$RT/data"
@@ -75,6 +93,7 @@ daemon_start() {
 }
 
 daemon_stop() {
+	[ "$MODE" = system ] && return 0  # the system service is not ours to stop
 	if systemctl --user is-active --quiet "$UNIT" 2>/dev/null; then
 		systemctl --user stop "$UNIT"
 	elif [ -f "$DAEMON_RUNTIME_DIR/docker.pid" ]; then
@@ -108,11 +127,11 @@ build_images() {
 		fi
 		if docker image inspect "$img" >/dev/null 2>&1; then
 			echo "Building $img..."
-			DOCKER_BUILDKIT=0 docker build -q -t "$img" "./$dir" 2>&1 | grep -v -e DEPRECATED -e 'BuildKit' -e 'buildx' -e 'environment-variable' -e '^$' || true
+			env "$LEGACY_BUILD" docker build -q -t "$img" "./$dir" 2>&1 | grep -v -e DEPRECATED -e 'BuildKit' -e 'buildx' -e 'environment-variable' -e '^$' || true
 		else
 			# First build downloads packages and can take several minutes: show progress.
 			echo "Building $img for the first time..."
-			DOCKER_BUILDKIT=0 docker build -t "$img" "./$dir" 2>&1 | grep -v -e DEPRECATED -e 'BuildKit' -e 'buildx' -e 'environment-variable' -e '^$' || true
+			env "$LEGACY_BUILD" docker build -t "$img" "./$dir" 2>&1 | grep -v -e DEPRECATED -e 'BuildKit' -e 'buildx' -e 'environment-variable' -e '^$' || true
 		fi
 		docker image inspect "$img" >/dev/null 2>&1 || { echo "Build of $img failed. Re-run: ./ctl.sh docker build -t $img ./$dir" >&2; exit 1; }
 	done
@@ -314,7 +333,7 @@ print("\n".join(f"{n}=={v}" for n, v in pins))' >backend/requirements.lock.new
 		daemon_stop
 		sleep 2
 		# Docker's data is owned by sub-uids, so remove it from inside a user namespace.
-		[ -d "$RT/data" ] && "$RT/bin/rootlesskit" rm -rf "$RT/data"
+		if [ "$MODE" = rootless ] && [ -d "$RT/data" ]; then "$RT/bin/rootlesskit" rm -rf "$RT/data"; fi
 		echo "Removed. Delete this folder to get rid of the Docker binaries too."
 		;;
 	*)
