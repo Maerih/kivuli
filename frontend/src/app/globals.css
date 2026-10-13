@@ -1,0 +1,178 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Roles, not colours. Dark values are declared twice: once for the OS setting,
+   once for the explicit toggle, which must win in both directions. */
+:root {
+  color-scheme: light;
+  --page: #f6f6f3;
+  --surface: #fcfcfb;
+  --raised: #ffffff;
+  --sunken: #efefeb;
+  --line: #e1e0d9;
+  --line-strong: #c3c2b7;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #7d7b75;
+  --accent: #2a78d6;
+  --accent-ink: #1c5cab;
+  --accent-soft: #e4effc;
+  --on-accent: #ffffff;
+  --mark: #fde68a;
+
+  /* Status: reserved for severity and health, always shown with a label. */
+  --critical: #d03b3b;
+  --serious: #d96a3d;
+  --warning: #b97f00;
+  --good: #0a8a0a;
+  --critical-soft: #fbe9e9;
+  --serious-soft: #fcede6;
+  --warning-soft: #fdf3d6;
+  --good-soft: #e3f4e3;
+
+  /* Chart series (validated order) and chrome. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --raised: #222221;
+    --sunken: #141413;
+    --line: #2c2c2a;
+    --line-strong: #40403c;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #96948d;
+    --accent: #3987e5;
+    --accent-ink: #86b6ef;
+    --accent-soft: #14273f;
+    --on-accent: #ffffff;
+    --mark: #6b5600;
+    --critical: #e25c5c;
+    --serious: #ec835a;
+    --warning: #fab219;
+    --good: #35b535;
+    --critical-soft: #3a1b1b;
+    --serious-soft: #3a231a;
+    --warning-soft: #3a2e10;
+    --good-soft: #12301a;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --grid: #2c2c2a;
+    --axis: #383835;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --raised: #222221;
+  --sunken: #141413;
+  --line: #2c2c2a;
+  --line-strong: #40403c;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #96948d;
+  --accent: #3987e5;
+  --accent-ink: #86b6ef;
+  --accent-soft: #14273f;
+  --on-accent: #ffffff;
+  --mark: #6b5600;
+  --critical: #e25c5c;
+  --serious: #ec835a;
+  --warning: #fab219;
+  --good: #35b535;
+  --critical-soft: #3a1b1b;
+  --serious-soft: #3a231a;
+  --warning-soft: #3a2e10;
+  --good-soft: #12301a;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --grid: #2c2c2a;
+  --axis: #383835;
+}
+
+@layer base {
+  html {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  mark {
+    background: var(--mark);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-line bg-surface;
+  }
+  .label {
+    @apply text-2xs font-semibold uppercase tracking-wider text-muted;
+  }
+  .field {
+    @apply h-9 w-full rounded-md border border-line-strong bg-raised px-3 text-sm text-ink placeholder:text-muted;
+  }
+  .th {
+    @apply whitespace-nowrap px-3 py-2 text-left text-2xs font-semibold uppercase tracking-wider text-muted;
+  }
+  .td {
+    @apply px-3 py-2.5 align-top text-sm;
+  }
+  .link {
+    @apply text-accent-ink underline-offset-2 hover:underline;
+  }
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

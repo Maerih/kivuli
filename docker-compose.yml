@@ -1,0 +1,293 @@
+name: kivuli
+
+# Network layout - the security boundary of the platform.
+#
+#   public     web, mailpit           the only containers with published ports (127.0.0.1)
+#   app        web <-> api            internal
+#   data       api, pipeline, notify <-> postgres, search      internal
+#   queue      api, pipeline, notify, beat <-> redis           internal
+#   crawlq     crawler, enricher <-> redis (and nothing else)  internal
+#   crawl      crawler, enricher <-> tor, egress               internal
+#   tor_out    tor only               internet (Tor network)
+#   clear_out  egress only            internet (allowlisted HTTPS)
+#   mail       notify <-> mailpit     internal
+#   mail_out   notify only            internet (your SMTP relay)
+#
+# The crawler - the one component that reads hostile content - sits on two
+# internal networks. It cannot reach the internet, the database, the search
+# index or the API; it can only ask Tor or the allowlisting proxy to fetch, and
+# hand the result to the queue.
+#
+# The enricher makes third-party lookups and AI calls. It holds the provider API
+# keys, sits on the same two internal networks, and never parses crawled content.
+
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp"]
+  pids_limit: 512
+
+x-backend: &backend
+  <<: *hardening
+  image: kivuli-backend
+  build: ./backend
+
+x-env-queue: &env-queue
+  APP_NAME: ${APP_NAME:-Kivuli}
+  REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+
+x-env-data: &env-data
+  <<: *env-queue
+  DATABASE_URL: postgresql+psycopg://kivuli:${POSTGRES_PASSWORD}@postgres:5432/kivuli
+  OPENSEARCH_URL: http://search:9200
+  PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+  EVIDENCE_HMAC_KEY: ${EVIDENCE_HMAC_KEY}
+  REDACT_SECRETS: ${REDACT_SECRETS:-true}
+  EVIDENCE_STORE_RAW: ${EVIDENCE_STORE_RAW:-false}
+  FOCUS_COUNTRIES: ${FOCUS_COUNTRIES:-KE}
+  DISCOVER_ONION_LINKS: ${DISCOVER_ONION_LINKS:-true}
+  MAX_CANDIDATES_PER_CRAWL: ${MAX_CANDIDATES_PER_CRAWL:-25}
+  LIVENESS_INTERVAL_HOURS: ${LIVENESS_INTERVAL_HOURS:-12}
+  EGRESS_ALLOW_HOSTS: ${EGRESS_ALLOW_HOSTS:-}
+  CRAWL_MAX_BYTES: ${CRAWL_MAX_BYTES:-2000000}
+  CRAWL_HOST_DELAY_SECONDS: ${CRAWL_HOST_DELAY_SECONDS:-3}
+  FOCUS_SECTORS: ${FOCUS_SECTORS:-}
+  ASM_MAX_HOSTS: ${ASM_MAX_HOSTS:-300}
+  ASM_INTERVAL_DAYS: ${ASM_INTERVAL_DAYS:-7}
+  INTEGRATIONS_ALLOW_PRIVATE: ${INTEGRATIONS_ALLOW_PRIVATE:-false}
+
+x-env-mail: &env-mail
+  EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+  ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+  SMTP_FROM: ${SMTP_FROM:-Kivuli Alerts <alerts@kivuli.local>}
+  SMTP_HOST: ${SMTP_HOST:-mailpit}
+  SMTP_PORT: ${SMTP_PORT:-1025}
+  SMTP_TLS: ${SMTP_TLS:-none}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+
+services:
+  # ── Data stores ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      POSTGRES_USER: kivuli
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: kivuli
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kivuli -d kivuli"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes", "--maxmemory", "768mb", "--maxmemory-policy", "noeviction"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    networks: [queue, crawlq]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  search:
+    image: kivuli-search
+    build: ./search
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      OPENSEARCH_JAVA_OPTS: -Xms${SEARCH_HEAP:-768m} -Xmx${SEARCH_HEAP:-768m}
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    volumes:
+      - searchdata:/usr/share/opensearch/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9200 && printf 'GET /_cluster/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '\"status\":\"\\(green\\|yellow\\)\"' <&3"]
+      interval: 10s
+      timeout: 10s
+      retries: 40
+      start_period: 40s
+
+  # ── Collection ────────────────────────────────────────────────────────────
+  tor:
+    <<: *hardening
+    image: kivuli-tor
+    build: ./tor
+    volumes:
+      - tordata:/var/lib/tor
+    networks: [crawl, tor_out]
+
+  egress:
+    <<: *backend
+    command: ["python", "-m", "app.egress_proxy"]
+    environment:
+      ROLE: egress
+      EGRESS_ALLOW_HOSTS: ${EGRESS_ALLOW_HOSTS:-}
+    networks: [crawl, clear_out]
+
+  crawler:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "crawl", "-n", "crawler@%h", "--concurrency", "${CRAWLER_CONCURRENCY:-6}", "--loglevel", "INFO", "--without-gossip", "--without-mingle"]
+    environment:
+      <<: *env-queue
+      ROLE: crawler
+      TOR_SOCKS_URL: socks5h://tor:9050
+      EGRESS_PROXY_URL: http://egress:8888
+      CRAWL_MAX_BYTES: ${CRAWL_MAX_BYTES:-2000000}
+      CRAWL_TIMEOUT_SECONDS: ${CRAWL_TIMEOUT_SECONDS:-75}
+      CRAWL_HOST_DELAY_SECONDS: ${CRAWL_HOST_DELAY_SECONDS:-3}
+    mem_limit: 1g
+    networks: [crawl, crawlq]
+    depends_on:
+      redis: {condition: service_healthy}
+      tor: {condition: service_started}
+      egress: {condition: service_started}
+
+  enricher:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "enrich", "-n", "enricher@%h", "--concurrency", "3", "--loglevel", "INFO", "--without-gossip", "--without-mingle"]
+    environment:
+      <<: *env-queue
+      ROLE: enricher
+      EGRESS_PROXY_URL: http://egress:8888
+      PROVIDER_KEYS_KEY: ${PROVIDER_KEYS_KEY:-}
+      ASM_MAX_HOSTS: ${ASM_MAX_HOSTS:-300}
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
+      SHODAN_API_KEY: ${SHODAN_API_KEY:-}
+      ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      GREYNOISE_API_KEY: ${GREYNOISE_API_KEY:-}
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-opus-5-5}
+    mem_limit: 1g
+    networks: [crawl, crawlq]
+    depends_on:
+      redis: {condition: service_healthy}
+      egress: {condition: service_started}
+
+  # ── Processing ────────────────────────────────────────────────────────────
+  pipeline:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "pipeline", "-n", "pipeline@%h", "--concurrency", "${PIPELINE_CONCURRENCY:-4}", "--loglevel", "INFO", "--without-gossip", "--without-mingle"]
+    environment:
+      <<: *env-data
+      ROLE: pipeline
+    volumes:
+      - evidence:/evidence
+    networks: [data, queue]
+    depends_on:
+      api: {condition: service_healthy}
+
+  notify:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "notify", "-n", "notify@%h", "--concurrency", "2", "--loglevel", "INFO", "--without-gossip", "--without-mingle"]
+    environment:
+      <<: [*env-data, *env-mail]
+      ROLE: notify
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SECRETS_KEY: ${SECRETS_KEY}
+    networks: [data, queue, mail, mail_out]
+    depends_on:
+      api: {condition: service_healthy}
+
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "-s", "/tmp/celerybeat-schedule", "--pidfile", "", "--loglevel", "INFO"]
+    environment:
+      <<: *env-queue
+      ROLE: beat
+      DIGEST_HOUR_UTC: ${DIGEST_HOUR_UTC:-6}
+    networks: [queue]
+    depends_on:
+      api: {condition: service_healthy}
+
+  # ── Analyst interface ─────────────────────────────────────────────────────
+  api:
+    <<: *backend
+    command: ["sh", "-c", "python -m app.manage init && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips '*'"]
+    environment:
+      <<: [*env-data, *env-mail]
+      ROLE: api
+      JWT_SECRET: ${JWT_SECRET}
+      SECRETS_KEY: ${SECRETS_KEY}
+      PROVIDER_KEYS_KEY: ${PROVIDER_KEYS_KEY:-}
+      REQUIRE_MFA: ${REQUIRE_MFA:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+    networks: [app, data, queue]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      search: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/healthz', timeout=4)"]
+      interval: 10s
+      timeout: 6s
+      retries: 30
+      start_period: 30s
+
+  web:
+    <<: *hardening
+    image: kivuli-web
+    build: ./frontend
+    environment:
+      API_URL: http://api:8000
+      APP_NAME: ${APP_NAME:-Kivuli}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    networks: [app, public]
+    depends_on:
+      api: {condition: service_healthy}
+
+  # Development inbox for alert email. Remove once a real relay is configured.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+    networks: [mail, public]
+
+networks:
+  public:
+  tor_out:
+  clear_out:
+  mail_out:
+  app:
+    internal: true
+  data:
+    internal: true
+  queue:
+    internal: true
+  crawlq:
+    internal: true
+  crawl:
+    internal: true
+  mail:
+    internal: true
+
+volumes:
+  pgdata:
+  redisdata:
+  searchdata:
+  tordata:
+  evidence:

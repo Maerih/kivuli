@@ -1,0 +1,18 @@
+# Tor gateway for the crawler. Client only: this node never relays or exits.
+SocksPort 0.0.0.0:9050 IsolateDestAddr
+# Only the private "crawl" network (and the container's own health check) may use the proxy.
+SocksPolicy accept 127.0.0.0/8
+SocksPolicy accept 10.0.0.0/8
+SocksPolicy accept 172.16.0.0/12
+SocksPolicy accept 192.168.0.0/16
+SocksPolicy reject *
+# Refuse SOCKS requests that carry an already-resolved IP: every lookup must go
+# through Tor, so a crawler bug can never leak DNS or be pointed at a raw address.
+SafeSocks 1
+ClientOnly 1
+ExitRelay 0
+ExitPolicy reject *:*
+ClientRejectInternalAddresses 1
+DataDirectory /var/lib/tor
+AvoidDiskWrites 1
+Log notice stdout

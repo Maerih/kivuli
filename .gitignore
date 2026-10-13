@@ -1,0 +1,13 @@
+.env
+.runtime/
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/wheelhouse/*
+!backend/wheelhouse/.gitkeep
+frontend/.npm-offline/*
+!frontend/.npm-offline/.gitkeep
+backups/
+frontend/tsconfig.tsbuildinfo

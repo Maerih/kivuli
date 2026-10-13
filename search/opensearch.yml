@@ -1,0 +1,12 @@
+cluster.name: kivuli
+node.name: kivuli-search-1
+network.host: 0.0.0.0
+http.port: 9200
+discovery.type: single-node
+path.data: /usr/share/opensearch/data
+path.logs: /usr/share/opensearch/logs
+bootstrap.memory_lock: false
+# Scripted queries are not used by the platform; keep the attack surface small.
+script.allowed_types: none
+action.auto_create_index: false
+action.destructive_requires_name: true
