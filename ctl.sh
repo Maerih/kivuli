@@ -22,8 +22,36 @@ cd "$ROOT"
 
 daemon_up() { docker info >/dev/null 2>&1; }
 
+DOCKER_VERSION="${DOCKER_VERSION:-29.8.2}"
+COMPOSE_VERSION="${COMPOSE_VERSION:-v5.6.0}"
+
+# Fetch Docker's static binaries into this folder on first use. Nothing is installed system-wide.
+runtime_install() {
+	[ -x "$RT/bin/dockerd-rootless.sh" ] && [ -x "$RT/config/cli-plugins/docker-compose" ] && return 0
+	local arch tmp
+	arch="$(uname -m)"
+	case "$arch" in x86_64 | aarch64) ;; *) echo "Unsupported CPU architecture: $arch" >&2; exit 1 ;; esac
+	for tool in curl tar newuidmap newgidmap; do
+		command -v "$tool" >/dev/null 2>&1 || { echo "Missing '$tool'. On Debian/Ubuntu: sudo apt install -y curl uidmap" >&2; exit 1; }
+	done
+	grep -q "^$(id -un):" /etc/subuid 2>/dev/null || { echo "No subordinate user ids for $(id -un) in /etc/subuid. Run: sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $(id -un)" >&2; exit 1; }
+	echo "Downloading Docker $DOCKER_VERSION into .runtime/ (first run only)..."
+	mkdir -p "$RT/bin" "$RT/config/cli-plugins"
+	tmp="$(mktemp -d)"
+	for pkg in docker docker-rootless-extras; do
+		curl -fL --retry 5 -C - -o "$tmp/$pkg.tgz" "https://download.docker.com/linux/static/stable/$arch/$pkg-$DOCKER_VERSION.tgz"
+		tar -xzf "$tmp/$pkg.tgz" -C "$tmp"
+		cp -f "$tmp/$pkg"/* "$RT/bin/"
+	done
+	curl -fL --retry 5 -o "$RT/config/cli-plugins/docker-compose" \
+		"https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-$arch"
+	chmod +x "$RT/bin"/* "$RT/config/cli-plugins/docker-compose"
+	rm -rf "$tmp"
+}
+
 daemon_start() {
 	daemon_up && return 0
+	runtime_install
 	echo "Starting rootless Docker daemon..."
 	mkdir -p "$DAEMON_RUNTIME_DIR" "$RT/data"
 	if systemctl --user show-environment >/dev/null 2>&1; then
