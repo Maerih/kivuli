@@ -249,7 +249,7 @@ services:
       API_URL: http://api:8000
       APP_NAME: ${APP_NAME:-Kivuli}
     ports:
-      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
     networks: [app, public]
     depends_on:
       api: {condition: service_healthy}
