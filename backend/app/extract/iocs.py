@@ -13,7 +13,8 @@ import tldextract
 # Bundled public-suffix snapshot only; never fetches the list at runtime.
 _tld = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
 
-IOC_TYPES = ("domain", "onion", "url", "ip", "email", "hash", "cve", "crypto", "username")
+IOC_TYPES = ("domain", "onion", "url", "ip", "email", "hash", "cve", "crypto", "username",
+             "tox", "session", "matrix", "discord", "jabber", "edb")
 MAX_PER_TYPE = 400  # a single combo-list page can hold 100k addresses
 
 _REFANG = [
@@ -61,6 +62,13 @@ RE_LABELLED_HANDLE = re.compile(
     re.I,
 )
 RE_AT_HANDLE = re.compile(r"(?<![\w@/.])@([A-Za-z][A-Za-z0-9_]{3,31})(?![\w@.]*\.[a-z]{2,})")
+# Contact handles and references common on dark-web forums and ransomware sites.
+RE_TOX = re.compile(r"(?<![A-Fa-f0-9])([0-9A-F]{76})(?![A-Fa-f0-9])")                 # Tox ID: 76 uppercase hex
+RE_SESSION = re.compile(r"(?<![0-9a-fA-F])(05[0-9a-f]{64})(?![0-9a-fA-F])")           # Session ID: 05 + 64 hex
+RE_MATRIX = re.compile(r"(?<![\w])(@[a-z0-9._=\/-]{1,64}:[a-z0-9.-]+\.[a-z]{2,})", re.I)  # Matrix user id
+RE_DISCORD = re.compile(r"\b(?:discord\.gg|discord(?:app)?\.com/invite)/([A-Za-z0-9-]{2,32})\b", re.I)
+RE_JABBER = re.compile(r"\b(?:jabber|xmpp)\s*[:=]?\s*([a-z0-9][a-z0-9._%+-]{0,63}@(?:[a-z0-9-]+\.)+[a-z]{2,24})", re.I)
+RE_EDB = re.compile(r"\b(?:EDB[-\s]?ID[:\s]*|exploit-db\.com/exploits/)(\d{1,7})\b", re.I)
 
 # TLDs that are usually a file extension when seen bare in running text.
 _FILE_EXT_TLDS = {"zip", "mov", "md", "py", "sh", "rs", "so", "ps", "cab"}
@@ -167,6 +175,16 @@ def extract_iocs(text: str) -> tuple[list[Indicator], set[str]]:
     col = _Collector(text)
     spans: list[tuple[int, int]] = []
 
+    # Contact handles whose shape would otherwise be read as an email, domain or URL: take them first.
+    pre: list[tuple[int, int]] = []
+    for m in RE_DISCORD.finditer(text):
+        col.add("discord", f"discord.gg/{m.group(1)}", m.start()); pre.append(m.span())
+    for m in RE_MATRIX.finditer(text):
+        col.add("matrix", m.group(1).lower(), m.start()); pre.append(m.span())
+    for m in RE_JABBER.finditer(text):
+        col.add("jabber", m.group(1).lower(), m.start()); pre.append(m.span())
+    text = _blank(text, pre)
+
     for m in RE_URL.finditer(text):
         url = m.group(0).rstrip(_TRAILING)
         host_match = re.match(r"https?://(?:[^/@\s]*@)?([^/:?#\s]+)", url, re.I)
@@ -203,6 +221,13 @@ def extract_iocs(text: str) -> tuple[list[Indicator], set[str]]:
     for m in RE_TRON.finditer(rest):
         if _btc_checksum_ok(m.group(1)):
             col.add("crypto", m.group(1), m.start())
+    # Contact handles whose shape would otherwise be read as a long hash: take them first and blank their spans.
+    hspans = []
+    for m in RE_TOX.finditer(rest):
+        col.add("tox", m.group(1), m.start()); hspans.append(m.span())
+    for m in RE_SESSION.finditer(rest):
+        col.add("session", m.group(1).lower(), m.start()); hspans.append(m.span())
+    rest = _blank(rest, hspans)
     rest = _blank(rest, spans)
 
     for pattern in (RE_SHA256, RE_SHA1, RE_MD5):
@@ -240,6 +265,8 @@ def extract_iocs(text: str) -> tuple[list[Indicator], set[str]]:
             handle = m.group(1).strip("._-")
             if len(handle) >= 3 and handle.lower() not in _HANDLE_STOP:
                 col.add("username", handle, m.start())
+    for m in RE_EDB.finditer(rest):
+        col.add("edb", f"EDB-{m.group(1)}", m.start())
 
     return list(col.items.values()), col.truncated
 
@@ -257,6 +284,15 @@ def detect_indicator(token: str) -> tuple[str, str] | None:
         return "url", token
     if re.fullmatch(r"[a-f0-9]{32}|[a-f0-9]{40}|[a-f0-9]{64}", token, re.I):
         return "hash", token.lower()
+    if RE_TOX.fullmatch(token):
+        return "tox", token
+    if RE_SESSION.fullmatch(token):
+        return "session", token.lower()
+    if RE_MATRIX.fullmatch(token):
+        return "matrix", token.lower()
+    m_edb = re.fullmatch(r"EDB-(\d{1,7})", token, re.I)
+    if m_edb:
+        return "edb", f"EDB-{m_edb.group(1)}"
     if RE_ETH.fullmatch(token):
         return "crypto", token.lower()
     if RE_BECH32.fullmatch(token) or RE_XMR.fullmatch(token) or ((RE_BTC.fullmatch(token) or RE_TRON.fullmatch(token)) and _btc_checksum_ok(token)):

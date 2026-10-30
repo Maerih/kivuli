@@ -72,7 +72,7 @@ Collected from a fresh install without any action:
 | Krebs on Security | Blog | 6 h |
 | CISA Known Exploited Vulnerabilities | Vulnerability catalogue | 12 h |
 | CISA cybersecurity advisories | Advisories | 6 h |
-| Feodo Tracker, OpenPhish, URLhaus | Indicator feeds | 3-6 h |
+| Feodo Tracker, OpenPhish | Indicator feeds | 3-6 h |
 | deepdarkCTI catalogue (ransomware sites, forums, markets) | Source discovery | daily |
 | Ahmia: banned onion services | Safety blocklist (hashes) | 24 h |
 
@@ -91,7 +91,7 @@ after the first start, and collected according to the collection policy.
 | Hashes | SHA-256 of the original response, SHA-256 of the stored text, a chained hash and an HMAC signature per version |
 | HTTP details | Status code and response headers of each capture; size |
 | Language | ISO code, when it could be determined |
-| Indicators | Domains, onion addresses, URLs, IPs, emails, hashes, CVEs, crypto wallets, usernames, each with surrounding text |
+| Indicators | Domains, onion addresses, URLs, IPs, emails, hashes, CVEs, crypto wallets, usernames, contact handles (Tox, Session, Matrix, Discord, Jabber/XMPP), Exploit-DB IDs, each with surrounding text |
 | Entities | Threat actors, organisations, malware, campaigns, incidents, ATT&CK techniques |
 | Classification | Threat type, secondary types, confidence, countries, sectors |
 | Scores | Risk with every factor; verification state; corroboration count |
@@ -328,7 +328,7 @@ against the real thing.
 | Webhook and Splunk destinations | Live | To a listener inside the container, HMAC verified on receipt |
 | Slack, Teams, Jira, ServiceNow destinations | Unit | Payloads tested; no real workspace or instance |
 | Destination guard | Live | A link-local address was refused |
-| Free enrichment providers | Live | All six answered through the egress proxy |
+| Free enrichment providers | Live | All answered through the egress proxy, including the Wayback Machine |
 | VirusTotal, Shodan, AbuseIPDB, GreyNoise, NVD with a key | Live (rejection), Unit (acceptance) | Each real service rejected a deliberately invalid key. No valid key has been available |
 | AI analyst | Live (rejection), Unproven (answers) | Anthropic rejected an invalid key. No model answer has ever been seen |
 | KEV sync, EPSS, NVD severity | Live | |

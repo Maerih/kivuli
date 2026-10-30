@@ -255,6 +255,33 @@ def probe_dns() -> dict:
     return _probe(True, f"Answered: {SAMPLE_DOMAIN} resolves to {', '.join(records[:3])}", a=records[:6]) if records else _probe(False, "No answer for a domain that certainly resolves")
 
 
+def parse_wayback(status: int, body) -> Result:
+    rows = body if isinstance(body, list) else []
+    snapshots = rows[1:] if rows and rows[0] and rows[0][0] == "urlkey" else rows
+    if status != 200 or not snapshots:
+        return _result(note="No snapshots in the Wayback Machine")
+    stamps = sorted(r[1] for r in snapshots if len(r) > 1 and r[1])
+    def _fmt(t):
+        return f"{t[0:4]}-{t[4:6]}-{t[6:8]}" if len(t) >= 8 else t
+    digests = {r[5] for r in snapshots if len(r) > 5}
+    return _result("unknown", snapshots=len(snapshots), first=_fmt(stamps[0]) if stamps else "",
+                   last=_fmt(stamps[-1]) if stamps else "", distinct_versions=len(digests),
+                   url=f"https://web.archive.org/web/*/{snapshots[0][2]}" if len(snapshots[0]) > 2 else "")
+
+
+def wayback(kind: str, value: str) -> Result:
+    target = value if kind == "url" else f"{value}/*"
+    return parse_wayback(*api_request("https://web.archive.org/cdx/search/cdx",
+                                      params={"url": target, "output": "json", "limit": "200", "collapse": "digest", "fl": "urlkey,timestamp,original,mimetype,statuscode,digest"}))
+
+
+def probe_wayback() -> dict:
+    r = wayback("domain", "example.com")
+    if r["summary"].get("snapshots"):
+        return _probe(True, f"Answered: {r['summary']['snapshots']} snapshots of example.com on record")
+    return _probe(False, "No snapshots returned for a domain that is certainly archived")
+
+
 def probe_ct() -> dict:
     hosts, _issuers, via = ct_hostnames(SAMPLE_DOMAIN)
     return _probe(True, f"Answered through {via}: {len(hosts)} hostnames for {SAMPLE_DOMAIN}", source=via) if hosts else _probe(False, "No certificates returned for a domain that certainly has some")
@@ -342,6 +369,7 @@ PROVIDERS: list[Provider] = [
     Provider("ripestat", "RIPEstat", ("ip",), ripestat, hosts=("stat.ripe.net",), about="Announcing network (ASN), holder and prefix", probe=probe_ripestat),
     Provider("dns", "Public DNS", ("domain",), dns, hosts=("dns.google",), about="A, MX and NS records over DNS-over-HTTPS", probe=probe_dns),
     Provider("ct", "Certificate transparency", ("domain",), ct, hosts=("api.certspotter.com", "crt.sh"), about="Hostnames and issuers from public certificate logs", probe=probe_ct),
+    Provider("wayback", "Wayback Machine", ("domain", "url"), wayback, hosts=("web.archive.org",), about="Historical snapshots: how long a site or page has existed and when it changed", probe=probe_wayback),
     Provider("epss", "FIRST EPSS", ("cve",), None, hosts=("api.first.org",), about="How likely each vulnerability is to be exploited in the next 30 days", probe=probe_epss),
     Provider("nvd", "NVD", ("cve",), None, "nvd_api_key", ("services.nvd.nist.gov",), "Severity (CVSS) and descriptions for vulnerabilities. Works without a key; a key raises the rate limit",
              probe_nvd, optional_key=True, signup="https://nvd.nist.gov/developers/request-an-api-key"),

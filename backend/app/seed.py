@@ -41,9 +41,6 @@ ADDED_SOURCES = [
     # Not intelligence but a safety control: onion services Ahmia has banned for abuse material, as hashes. Nothing on it is ever fetched.
     ("Ahmia: banned onion services (safety blocklist)", "https://ahmia.fi/blacklist/banned/", "onion_blocklist", "other", 95, 1440,
      {"max_bytes": 4_000_000}, "approved"),
-    # URLhaus (abuse.ch): active malicious URLs, keyless plaintext export.
-    ("URLhaus: malicious URLs", "https://urlhaus.abuse.ch/downloads/text_online/", "ioc_feed", "tracker", 80, 180,
-     {"tag": "malware-url", "ioc_type": "url", "max_bytes": 12_000_000}, "approved"),
     # deepdarkCTI (fastfire/deepdarkCTI, GPL-3.0): curated catalogues of dark-web sources. These do not collect
     # intelligence themselves; each run files the listed sites as *discovered sources* for a researcher to approve.
     ("deepdarkCTI: ransomware leak sites", "https://raw.githubusercontent.com/fastfire/deepdarkCTI/main/ransomware_gang.md",

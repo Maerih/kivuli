@@ -1009,7 +1009,7 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 - **Finding statuses:** `new`, `triaged`, `escalated`, `dismissed`
 - **Alert statuses:** `open`, `acknowledged`, `resolved`, `false_positive`
 - **Source statuses:** `candidate`, `approved`, `paused`, `blocked`
-- **Indicator types:** `domain`, `onion`, `url`, `ip`, `email`, `hash`, `cve`, `crypto`, `username`
+- **Indicator types:** `domain`, `onion`, `url`, `ip`, `email`, `hash`, `cve`, `crypto`, `username`, `tox`, `session`, `matrix`, `discord`, `jabber`, `edb`
 - **Entity types:** `actor`, `organization`, `malware`, `campaign`, `incident`, `technique`
 - **Watchlist kinds:** `keyword`, `domain`, `email`, `ip`, `organization`, `actor`, `cve`, `hash`, `crypto`, `username`, `brand`, `technology`, `vendor`, `executive`
 - **Verification states:** `unverified`, `reported`, `corroborated`, `confirmed`
@@ -1085,6 +1085,7 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 | RIPEstat | free | ip | stat.ripe.net | - |
 | Public DNS | free | domain | dns.google | - |
 | Certificate transparency | free | domain | api.certspotter.com, crt.sh | - |
+| Wayback Machine | free | domain, url | web.archive.org | - |
 | FIRST EPSS | free | cve | api.first.org | - |
 | NVD | free (key optional) | cve | services.nvd.nist.gov | `NVD_API_KEY` |
 | VirusTotal | commercial | ip, domain, url, hash | www.virustotal.com | `VIRUSTOTAL_API_KEY` |
@@ -1109,7 +1110,9 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 | `country:` | `country:`, `geo:` |
 | `crypto:` | `btc:`, `crypto:`, `eth:`, `wallet:` |
 | `cve:` | `cve:` |
+| `discord:` | `discord:` |
 | `domain:` | `domain:` |
+| `edb:` | `edb:`, `exploitdb:` |
 | `email:` | `email:` |
 | `has:` | `has:` |
 | `hash:` | `hash:`, `md5:`, `sha1:`, `sha256:` |
@@ -1117,8 +1120,10 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 | `inurl:` | `inurl:` |
 | `ioc:` | `ioc:` |
 | `ip:` | `ip:` |
+| `jabber:` | `jabber:`, `xmpp:` |
 | `lang:` | `lang:`, `language:` |
 | `malware:` | `family:`, `malware:` |
+| `matrix:` | `matrix:` |
 | `network:` | `net:`, `network:` |
 | `onion:` | `onion:` |
 | `organization:` | `company:`, `org:`, `organisation:`, `organization:`, `victim:` |
@@ -1126,6 +1131,7 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 | `risk:` | `risk:` |
 | `sector:` | `industry:`, `sector:` |
 | `seen:` | `seen:` |
+| `session:` | `session:` |
 | `severity:` | `sev:`, `severity:` |
 | `similar:` | `like:`, `similar:` |
 | `source:` | `source:` |
@@ -1135,6 +1141,7 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 | `tag:` | `tag:` |
 | `technique:` | `attack:`, `technique:`, `ttp:` |
 | `title:` | `intitle:`, `title:` |
+| `tox:` | `tox:` |
 | `type:` | `threat:`, `type:` |
 | `url:` | `url:` |
 | `username:` | `handle:`, `user:`, `username:` |

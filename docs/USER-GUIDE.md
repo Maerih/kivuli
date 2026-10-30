@@ -172,6 +172,7 @@ Combine any of these with free text.
 | `domain:` | `domain:example.co.ke` (with subdomains and mailboxes) |
 | `email:`, `ip:`, `url:`, `onion:` | `ip:41.90.0.0/16` |
 | `hash:`, `cve:`, `crypto:`, `user:` | `user:threat_handle` |
+| `tox:`, `session:`, `matrix:`, `discord:`, `jabber:`, `edb:` | `jabber:seller@exploit.im` (contact handles actors post; `edb:51234` is an Exploit-DB ID; found in pages collected from this release on) |
 | `ioc:` | `ioc:exampl*` (any indicator type, wildcards allowed) |
 
 **Quality, time and state**
@@ -500,7 +501,8 @@ them. When two records look like the same thing, *Merge into it* combines them.
 **Indicators.** Every indicator, by type. An indicator page shows where it
 appears with surrounding text, associated entities and indicators seen with it.
 *External context* asks the configured providers about it (the indicator itself
-is never contacted). *Mark benign* stops a harmless shared value from linking
+is never contacted). For a domain or URL this includes the Wayback Machine: how
+many archived snapshots exist, the first and last, and how many distinct versions. *Mark benign* stops a harmless shared value from linking
 unrelated findings.
 
 **Relationships.** A graph around any actor, organisation, malware, indicator

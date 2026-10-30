@@ -49,7 +49,8 @@ export const SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"];
 
 export const IOC_LABELS: Record<string, string> = {
   domain: "Domain", onion: "Onion address", url: "URL", ip: "IP address", email: "Email", hash: "File hash", cve: "CVE",
-  crypto: "Crypto wallet", username: "Username",
+  crypto: "Crypto wallet", username: "Username", tox: "Tox ID", session: "Session ID", matrix: "Matrix ID",
+  discord: "Discord invite", jabber: "Jabber / XMPP", edb: "Exploit-DB ID",
 };
 
 export const ENTITY_LABELS: Record<string, string> = {

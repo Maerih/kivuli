@@ -12,6 +12,7 @@ from opensearchpy import OpenSearch, helpers
 from app.config import get_settings
 from app.extract.iocs import registered_domain
 
+HANDLE_TYPES = ("tox", "session", "matrix", "discord", "jabber", "edb")
 log = logging.getLogger(__name__)
 
 HL_OPEN, HL_CLOSE = "@@HL@@", "@@/HL@@"
@@ -148,6 +149,8 @@ INDEX_BODY = {
             "ioc_username": _LC,
             # Every indicator value, for "paste anything" lookups and wildcards.
             "ioc_all": _LC,
+            # Contact handles and Exploit-DB IDs as "type:value", so jabber: matches only Jabber IDs.
+            "ioc_handles": _LC,
             # mail.example.co.ke is indexed as itself, example.co.ke - so a search for
             # the organisation's domain finds every subdomain and mailbox under it.
             "domain_suffixes": _LC,
@@ -209,7 +212,7 @@ def ensure_index(recreate: bool = False) -> bool:
     # Adding fields to a live index is safe and idempotent; existing documents are
     # filled in by the release backfill (manage upgrade-intel) or a reindex.
     os_client.indices.put_mapping(index=name, body={"properties": {
-        key: INDEX_BODY["mappings"]["properties"][key] for key in ("techniques", "tactics", "verification", "corroboration", "admiralty")}})
+        key: INDEX_BODY["mappings"]["properties"][key] for key in ("techniques", "tactics", "verification", "corroboration", "admiralty", "ioc_handles")}})
     return False
 
 
@@ -279,6 +282,7 @@ def build_index_doc(doc, iocs: Iterable[tuple[str, str]], entities: Iterable[tup
         "ioc_crypto": by_type.get("crypto", []),
         "ioc_username": by_type.get("username", []),
         "ioc_all": [v for values in by_type.values() for v in values],
+        "ioc_handles": [f"{t}:{v}" for t in HANDLE_TYPES for v in by_type.get(t, [])],
         "domain_suffixes": sorted(suffixes),
         "email_domains": sorted(email_domains),
         "ioc_count": sum(len(v) for v in by_type.values()),

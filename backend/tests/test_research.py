@@ -157,3 +157,24 @@ def test_deepdark_catalog_maps_categories():
     row = "|[X](http://abcde234abcde234abcde234abcde234abcde234abcde234abcde2ad.onion/)|ONLINE|"
     assert parse_deepdark_catalog("|h|s|\n|---|---|\n" + row, {"list": "ransomware_gang"}).discovered[0]["category"] == "ransomware_leak_site"
     assert parse_deepdark_catalog("|h|s|\n|---|---|\n" + row, {"list": "markets"}).discovered[0]["category"] == "marketplace"
+
+
+def test_contact_handle_indicator_types():
+    from app.extract.iocs import detect_indicator, extract_iocs
+
+    tox = "A" * 76
+    text = (f"Tox: {tox} Session 05{'b' * 64} Matrix @lockbit:matrix.org "
+            "Discord discord.gg/AbCd1234 xmpp: support@thesecure.biz exploit EDB-ID: 50123 "
+            "and a real mailbox victim@corp.co.ke")
+    vals = {(i.type, i.value) for i in extract_iocs(text)[0]}
+    assert ("tox", tox) in vals
+    assert ("session", "05" + "b" * 64) in vals
+    assert ("matrix", "@lockbit:matrix.org") in vals
+    assert ("discord", "discord.gg/AbCd1234") in vals
+    assert ("jabber", "support@thesecure.biz") in vals        # the labelled xmpp handle, not read as a plain email
+    assert ("edb", "EDB-50123") in vals
+    assert ("email", "victim@corp.co.ke") in vals             # a genuine email is still an email
+    assert not any(t == "domain" and v in ("discord.gg", "matrix.org") for t, v in vals)  # no noise domains
+    assert detect_indicator(tox) == ("tox", tox)
+    assert detect_indicator("@x:matrix.org") == ("matrix", "@x:matrix.org")
+    assert detect_indicator("EDB-50123") == ("edb", "EDB-50123")

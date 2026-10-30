@@ -337,3 +337,18 @@ def test_greynoise_is_tested_on_the_endpoint_that_checks_the_key(monkeypatch):
     assert asked == ["https://api.greynoise.io/ping"] and not result["ok"] and result["detail"]["reason"] == "key_rejected"
     monkeypatch.setattr(providers, "api_request", lambda url, **kw: (200, {"message": "pong", "offering": "community", "expiration": "2027-01-01"}))
     assert providers.run_probe("greynoise")["message"] == "Key accepted: GreyNoise plan “community”"
+
+
+def test_wayback_snapshot_parser():
+    from app.enrich import providers
+
+    rows = [["urlkey", "timestamp", "original", "mimetype", "statuscode", "digest"],
+            ["com,example)/", "20020120142510", "http://example.com/", "text/html", "200", "AAA"],
+            ["com,example)/", "20100615090000", "http://example.com/", "text/html", "200", "BBB"],
+            ["com,example)/", "20200101000000", "http://example.com/", "text/html", "200", "BBB"]]
+    r = providers.parse_wayback(200, rows)
+    assert r["summary"]["snapshots"] == 3 and r["summary"]["first"] == "2002-01-20" and r["summary"]["last"] == "2020-01-01"
+    assert r["summary"]["distinct_versions"] == 2
+    assert providers.parse_wayback(200, [["urlkey", "timestamp"]])["summary"].get("note")
+    names = {p["name"]: p for p in providers.catalogue()}
+    assert names["wayback"]["enabled"] and names["wayback"]["tier"] == "free" and "url" in names["wayback"]["kinds"]

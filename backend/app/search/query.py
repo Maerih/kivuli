@@ -38,6 +38,8 @@ FIELD_ALIASES = {
     "hash": "hash", "md5": "hash", "sha1": "hash", "sha256": "hash",
     "cve": "cve", "crypto": "crypto", "btc": "crypto", "eth": "crypto", "wallet": "crypto",
     "user": "username", "username": "username", "handle": "username",
+    "tox": "tox", "session": "session", "matrix": "matrix", "discord": "discord",
+    "jabber": "jabber", "xmpp": "jabber", "edb": "edb", "exploitdb": "edb",
     "ioc": "ioc", "tag": "tag", "status": "status",
     "title": "title", "intitle": "title", "host": "host", "site": "host", "inurl": "inurl",
     "lang": "lang", "language": "lang", "category": "category", "kind": "category", "similar": "similar", "like": "similar",
@@ -89,6 +91,8 @@ HAS_FLAGS = {
     "creds": "credentials", "credentials": "credentials", "passwords": "credentials", "iocs": "iocs", "ioc": "iocs",
     "changes": "changes", "history": "changes", "actor": "actor", "victim": "organization", "org": "organization", "cve": "cve",
 }
+# Contact handles and Exploit-DB IDs are indexed as type:value in ioc_handles.
+HANDLE_TYPES = {"tox": "Tox ID", "session": "Session ID", "matrix": "Matrix", "discord": "Discord", "jabber": "Jabber/XMPP", "edb": "Exploit-DB"}
 IOC_FIELD = {"email": "ioc_email", "hash": "ioc_hash", "cve": "ioc_cve", "crypto": "ioc_crypto", "username": "ioc_username", "onion": "ioc_onion", "url": "ioc_url"}
 
 _TOKEN = re.compile(r'(?P<neg>-)?(?:(?P<field>[A-Za-z_]{2,20}):)?(?:"(?P<quoted>[^"]*)"|(?P<bare>[^\s"]+))')
@@ -264,6 +268,14 @@ def _field_clause(name: str, value: str, parsed: Parsed) -> dict | None:
         if "*" in value:
             return {"wildcard": {IOC_FIELD[name]: {"value": value, "case_insensitive": True}}}
         return indicator_query(name, value)
+    if name in HANDLE_TYPES:
+        value = refang(value)
+        if name == "edb" and value.isdigit():
+            value = f"EDB-{value}"  # stored as the extractor writes it
+        parsed.note("ioc", f"{HANDLE_TYPES[name]}: {value}")
+        if "*" in value:
+            return {"wildcard": {"ioc_handles": {"value": f"{name}:{value.lower()}", "case_insensitive": True}}}
+        return {"term": {"ioc_handles": f"{name}:{value}"}}
     if name == "ioc":
         parsed.note("ioc", f"Indicator: {value}")
         value = refang(value)

@@ -78,3 +78,11 @@ def test_empty_query_matches_everything():
 def test_parser_never_raises_on_garbage():
     for raw in ['"unterminated', "-", ":::", "a:b:c:d", "risk:>>", "((((", "OR OR OR", "x" * 5000, "\x00\x01"]:
         to_bool_query(parse_query(raw))
+
+
+def test_contact_handle_operators():
+    parsed = parse_query("jabber:seller@exploit.im edb:51234")
+    assert ("ioc", "Jabber/XMPP: seller@exploit.im") in kinds(parsed)
+    assert ("ioc", "Exploit-DB: EDB-51234") in kinds(parsed)
+    assert '"ioc_handles": "jabber:seller@exploit.im"' in dump(parsed)
+    assert '"tox:abc*"' in dump(parse_query("tox:ABC*"))
