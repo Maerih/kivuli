@@ -101,7 +101,7 @@ export function ErrorNote({ error }: { error?: { message: string } | null }) {
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string; count?: number }[]; value: T; onChange: (id: T) => void }) {
   return (
-    <div className="scroll-thin flex gap-1 overflow-x-auto border-b border-line" role="tablist">
+    <div className="scroll-thin flex gap-1 overflow-x-auto border-b border-line pb-px" role="tablist">
       {tabs.map((tab) => (
         <button
           key={tab.id}
