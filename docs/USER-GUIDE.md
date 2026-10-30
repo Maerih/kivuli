@@ -540,7 +540,12 @@ traced where they appear in collected intelligence.
   provider is unsure), *Seen in intelligence* (mentioned in findings, which on
   its own proves nothing: victims and vendors are mentioned too), *No sign of
   harm*, *Benign* (an analyst marked it so) or *Unknown*. Every verdict lists
-  its reasons. The indicator itself is never contacted.
+  its reasons. The indicator itself is never contacted. For a Bitcoin,
+  Ethereum or TRON wallet, *Check* also reads it from the public blockchain
+  explorer: balance, received and sent, transactions and counterparties, beside
+  where it appears in collected open- and dark-web intelligence. *Trace the
+  flow* opens it in the crypto tracer. The activity dates cover the latest
+  transactions read (50), not the wallet's whole life.
 - *Email headers.* Paste an email's headers ("Show original" in Gmail, "View
   message source" in Outlook). You get the delivery path oldest hop first, the
   first public IP it came from, the SPF, DKIM and DMARC results the receiving

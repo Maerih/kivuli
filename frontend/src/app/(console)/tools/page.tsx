@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/shell";
 import { useSession } from "@/components/session";
 import { Badge, Button, Card, CardHeader, Empty, Spinner, Tabs, useAction } from "@/components/ui";
 import { api, type FindingSummary } from "@/lib/api";
-import { ago, IOC_LABELS } from "@/lib/format";
+import { ago, day, IOC_LABELS } from "@/lib/format";
 
 type Tool = "verdict" | "headers" | "decode";
 type Tone = "neutral" | "accent" | "critical" | "serious" | "warning" | "good";
@@ -48,7 +48,9 @@ interface Verdict {
   value: string; type: string; defanged: string; verdict: string; reasons: string[]; enrichable: boolean; providers_for_type: string[]; key_rejected: { provider: string; label: string; message: string }[];
   indicator: { id: number; findings: number; first_seen: string | null; last_seen: string | null; feeds: string[]; tags: string[]; benign: boolean } | null;
   findings: FindingSummary[]; watchlists: { id: number; name: string }[]; results: ProviderResult[];
-  wallet: { category: string; label: string; balance: number | null; token: string } | null;
+  wallet: { category: string; category_label: string; label: string; balance: number | null; token: string; total_in: number | null; total_out: number | null; tx_count: number | null;
+            counterparties: number | null; first_tx: string | null; last_tx: string | null; looked_up: boolean; error: string; truncated: boolean } | null;
+  chain_supported: boolean;
 }
 
 function summaryText(s: Record<string, unknown>) {
@@ -115,7 +117,7 @@ function VerdictTool() {
               </div>
               <ul className="list-disc space-y-1 border-t border-line px-8 py-3 text-sm text-ink-2">{data.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
             </Card>
-            <Card>
+            {data.type !== "crypto" && <Card>
               <CardHeader title="Providers" hint={data.enrichable ? (data.providers_for_type.length ? `Switched on for this type: ${data.providers_for_type.join(", ")}` : "No provider is switched on for this type") : "No provider covers this type; collected intelligence only"} />
 {(data.key_rejected ?? []).length > 0 && <p className="border-t border-line px-4 py-2 text-xs text-warning">{(data.key_rejected ?? []).map((k) => k.label).join(", ")} skipped: {(data.key_rejected ?? []).length === 1 ? "its key was" : "their keys were"} rejected. <Link href="/integrations" className="underline">Replace under Integrations</Link>; the free providers still answer.</p>}
               {data.results.length === 0 ? <p className="px-4 py-3 text-sm text-muted">{data.enrichable ? (canWrite ? "No answers yet." : "No answers yet. An analyst can run the check.") : "Not applicable."}</p> : (
@@ -133,7 +135,7 @@ function VerdictTool() {
                   ))}
                 </div>
               )}
-            </Card>
+            </Card>}
             <Card>
               <CardHeader title="Where it appears" hint="Most recent findings that mention it" />
               {data.findings.length ? <div className="divide-y divide-line">{data.findings.map((f) => <FindingRow key={f.id} f={f} />)}</div> : <p className="px-4 py-3 text-sm text-muted">Not seen in collected intelligence.</p>}
@@ -150,9 +152,22 @@ function VerdictTool() {
                   {data.indicator.tags.length > 0 && <div><dt className="label">Tags</dt><dd>{data.indicator.tags.join(", ")}</dd></div>}
                 </> : <p className="text-muted">Never collected.</p>}
                 <div><dt className="label">Watchlists</dt><dd>{data.watchlists.length ? data.watchlists.map((w) => w.name).join(", ") : "None cover it"}</dd></div>
-                {data.type === "crypto" && <div><dt className="label">Wallet</dt><dd>{data.wallet ? `${data.wallet.category}${data.wallet.label ? `: ${data.wallet.label}` : ""}` : "Not traced"} · <Link className="text-accent-ink hover:underline" href={`/crypto?address=${encodeURIComponent(data.value)}`}>Trace</Link></dd></div>}
               </dl>
             </Card>
+            {data.type === "crypto" && (
+              <Card>
+                <CardHeader title="On the blockchain" hint={data.chain_supported ? "Public explorer data; nothing is signed or sent" : "This chain cannot be read on-chain"} action={<Link className="text-xs text-accent-ink hover:underline" href={`/crypto?address=${encodeURIComponent(data.value)}`}>Trace the flow</Link>} />
+                <dl className="space-y-2 px-4 py-3 text-sm">
+                  {!data.wallet?.looked_up ? <p className="text-muted">{data.chain_supported ? (polling > 0 ? "Reading the blockchain…" : canWrite ? "Press Check to read it on-chain." : "Not read yet.") : "Only where it appears in collected intelligence."}</p> : data.wallet.error ? <p className="text-muted">{data.wallet.error}</p> : <>
+                    <div><dt className="label">Type</dt><dd>{data.wallet.category_label}{data.wallet.label ? `: ${data.wallet.label}` : ""}</dd></div>
+                    <div><dt className="label">Balance</dt><dd className="tabular-nums">{data.wallet.balance ?? "—"} {data.wallet.token}</dd></div>
+                    <div><dt className="label">Received / sent</dt><dd className="tabular-nums">{data.wallet.total_in ?? "—"} / {data.wallet.total_out ?? "—"}</dd></div>
+                    <div><dt className="label">Transactions</dt><dd className="tabular-nums">{data.wallet.tx_count ?? "—"} with {data.wallet.counterparties ?? 0} counterparties</dd></div>
+                    <div><dt className="label">{data.wallet.truncated ? "Active (latest transactions read)" : "Active"}</dt><dd>{data.wallet.first_tx ? day(data.wallet.first_tx) : "—"} to {data.wallet.last_tx ? day(data.wallet.last_tx) : "—"}</dd></div>
+                  </>}
+                </dl>
+              </Card>
+            )}
           </aside>
         </div>
       )}

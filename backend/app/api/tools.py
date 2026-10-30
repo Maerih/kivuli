@@ -17,6 +17,8 @@ from app.api.common import finding_summary, iso
 from app.config import get_settings
 from app.db import get_db
 from app.enrich import providers, rejected
+from app.chain.addresses import can_look_up, detect_chain
+from app.chain.labels import CATEGORY_LABELS
 from app.extract.iocs import defang, detect_indicator
 from app.models import ChainAddress, Document, DocumentIoc, Enrichment, Ioc, User, Watchlist
 from app.security import analyst, audit, viewer
@@ -133,7 +135,11 @@ def verdict(value: str = Query(min_length=3, max_length=1024), db: Session = Dep
         "key_rejected": [{"provider": n, "label": labels.get(n, n), "message": m} for n, m in skipped.items()
                          if kind in (providers.BY_NAME[n].kinds if n in providers.BY_NAME else ())],
         "findings": findings, "watchlists": [{"id": w.id, "name": w.name} for w in watches], "results": results,
-        "wallet": {"category": wallet.category, "label": wallet.label, "balance": wallet.balance, "token": wallet.token} if wallet else None,
+        "wallet": {"category": wallet.category, "category_label": CATEGORY_LABELS.get(wallet.category, wallet.category), "label": wallet.label, "balance": wallet.balance, "token": wallet.token,
+                   "total_in": wallet.total_in, "total_out": wallet.total_out, "tx_count": wallet.tx_count,
+                   "counterparties": wallet.counterparty_count, "first_tx": iso(wallet.first_tx_at), "last_tx": iso(wallet.last_tx_at),
+                   "looked_up": wallet.enriched_at is not None, "error": wallet.error, "truncated": wallet.truncated} if wallet else None,
+        "chain_supported": kind == "crypto" and can_look_up((detect_chain(norm) or ("", ""))[0]),
     }
 
 
@@ -158,6 +164,10 @@ def run_verdict(body: VerdictIn, request: Request, db: Session = Depends(get_db)
     queued = kind in ENRICHABLE
     if queued:
         enqueue("enrich.subject", subject_type=kind, value=norm)
+    elif kind == "crypto":
+        # A wallet: read it on-chain from the public explorer, next to what collected intelligence says.
+        from app.api.chain import _queue as queue_chain_lookup
+        queued = bool(queue_chain_lookup(db, norm, user).get("job_id"))
     audit(db, request, user, "tools.verdict", "ioc", norm[:200], type=kind, queued=queued)
     db.commit()
     return {"value": norm, "type": kind, "queued": queued}
