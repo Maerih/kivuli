@@ -13,7 +13,7 @@ from app.api.common import finding_summary, iso, paginate
 from app.config import get_settings
 from app.db import get_db
 from app.extract.classify import THREAT_TYPES
-from app.extract.geo import country_name
+from app.extract.geo import country_name, country_numeric
 from app.intel import attack, quality
 from app.models import Asset, Exposure, Relationship, Vulnerability
 from app.models import ROLES, Alert, AuditLog, Case, CrawlLog, Document, EmailLog, Entity, Ioc, Source, User, Watchlist, utcnow
@@ -36,6 +36,9 @@ def dashboard(days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)
                     "types": [], "countries": [], "actors": [], "organizations": [], "sectors": [], "network": [], "timeline": []}
     for bucket in overview["countries"]:
         bucket["label"] = country_name(bucket["value"])
+    for bucket in overview.setdefault("country_map", []):
+        bucket["label"] = country_name(bucket["value"])
+        bucket["numeric"] = country_numeric(bucket["value"])
     for bucket in overview["types"]:
         bucket["label"] = THREAT_TYPES.get(bucket["value"], bucket["value"])
 

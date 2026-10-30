@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { FindingRow, SeverityBadge } from "@/components/bits";
 import { BarList, ColumnChart } from "@/components/charts";
+import { WorldMap } from "@/components/worldmap";
 import { PageHeader } from "@/components/shell";
 import { useSession } from "@/components/session";
 import { Button, Card, CardHeader, Empty, ErrorNote, Spinner } from "@/components/ui";
@@ -13,7 +14,7 @@ import { ago, cn, compact, num } from "@/lib/format";
 
 interface Dashboard {
   days: number; total: number; in_window: number; prev_window: number; last_24h: number; with_credentials: number;
-  severity: Bucket[]; types: Bucket[]; countries: Bucket[]; actors: Bucket[]; organizations: Bucket[]; sectors: Bucket[];
+  severity: Bucket[]; types: Bucket[]; countries: Bucket[]; country_map?: (Bucket & { numeric?: string })[]; actors: Bucket[]; organizations: Bucket[]; sectors: Bucket[];
   timeline: { date: string; count: number; high: number }[];
   focus_countries: { code: string; name: string }[];
   top_findings: FindingSummary[];
@@ -134,6 +135,14 @@ export default function TrendsPage() {
           )}
         </Card>
       </div>
+
+      <Card className="mt-4">
+        <CardHeader title="Where it is happening" hint={`Countries named in findings over the last ${days} days. Click a country to open its findings.`} />
+        <div className="px-4 py-4">
+          {(data.country_map ?? []).length ? <WorldMap data={data.country_map ?? []} caption={`Findings per country over the last ${days} days`} />
+            : <p className="text-sm text-muted">No country has been named in findings in this period.</p>}
+        </div>
+      </Card>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>

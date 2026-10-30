@@ -585,7 +585,11 @@ in collected intelligence, presence on your hosts, severity.
 ## 13. Trends, integrations and system
 
 **Trends.** Charts over 7, 30 or 90 days: volume, threat types, countries,
-actors, sectors, what is rising. *Executive brief* opens a printable summary.
+actors, sectors, what is rising. *Where it is happening* is a world map shaded
+by how many findings name each country (darker in the light theme, brighter in
+the dark one); hover a country for its count, click it to open its findings.
+The *Countries* list beside it gives the same numbers as text. *Executive
+brief* opens a printable summary.
 
 **Integrations**
 

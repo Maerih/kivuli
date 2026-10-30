@@ -92,6 +92,12 @@ def country_name(code: str) -> str:
     return _tables()[2].get(code.upper(), code.upper())
 
 
+def country_numeric(code: str) -> str:
+    """ISO 3166 numeric code ("404" for KE), which world map data uses to identify countries."""
+    country = pycountry.countries.get(alpha_2=code.upper())
+    return country.numeric if country else ""
+
+
 def all_countries() -> dict[str, str]:
     return dict(_tables()[2])
 

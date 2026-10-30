@@ -198,6 +198,7 @@ limits. **Not built** is absent.
 
 | Capability | Status | Notes |
 |---|---|---|
+| World map of countries named in findings, click-through to findings | Built | Natural Earth 1:110m (public domain); ISO numeric codes from pycountry |
 | Search everywhere from any indicator or entity | Built | |
 | Find connections from any indicator, entity or finding | Built | |
 | Relationship graph with stated relationships and co-occurrence | Built | |

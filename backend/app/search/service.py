@@ -349,6 +349,7 @@ def overview(days: int = 30) -> dict:
                     "severity": {"terms": {"field": "severity", "size": 5}},
                     "types": {"terms": {"field": "threat_type", "size": 12}},
                     "countries": {"terms": {"field": "countries", "size": 12}},
+                    "country_map": {"terms": {"field": "countries", "size": 250}},  # every country, for the world map
                     "actors": {"terms": {"field": "actors", "size": 10}},
                     "organizations": {"terms": {"field": "organizations", "size": 10}},
                     "sectors": {"terms": {"field": "sectors", "size": 8}},
@@ -378,6 +379,7 @@ def overview(days: int = 30) -> dict:
         "prev_window": aggs["prev_window"]["doc_count"],
         "last_24h": aggs["last_24h"]["doc_count"],
         "with_credentials": win["credentials"]["doc_count"],
+        "country_map": buckets("country_map"),
         "severity": buckets("severity"),
         "types": buckets("types"),
         "countries": buckets("countries"),
