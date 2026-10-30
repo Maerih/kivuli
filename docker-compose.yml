@@ -21,8 +21,17 @@ name: kivuli
 # The enricher makes third-party lookups and AI calls. It holds the provider API
 # keys, sits on the same two internal networks, and never parses crawled content.
 
+# Container logs are rotated: at most 5 files of 20 MB each per container. Docker's
+# default keeps them forever, which on a long-running server fills the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 x-hardening: &hardening
   restart: unless-stopped
+  logging: *logging
   read_only: true
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
@@ -72,6 +81,7 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     environment:
       POSTGRES_USER: kivuli
@@ -89,6 +99,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes", "--maxmemory", "768mb", "--maxmemory-policy", "noeviction"]
     environment:
@@ -106,6 +117,7 @@ services:
     image: kivuli-search
     build: ./search
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
     environment:
@@ -296,6 +308,7 @@ services:
     image: caddy:2-alpine
     profiles: ["https"]
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
     cap_add: [NET_BIND_SERVICE]
@@ -323,6 +336,7 @@ services:
     image: wettyoss/wetty:latest
     profiles: ["shell"]
     restart: unless-stopped
+    logging: *logging
     read_only: true
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
@@ -338,6 +352,7 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped
+    logging: *logging
     security_opt: ["no-new-privileges:true"]
     environment:
       MP_MAX_MESSAGES: 500

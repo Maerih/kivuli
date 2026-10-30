@@ -396,7 +396,8 @@ or a separate broker for results.
 ./ctl.sh test                  backend test suite
 ./ctl.sh lock                  re-pin backend dependencies after editing requirements.txt
 ./ctl.sh manage create-user analyst@example.com analyst
-./ctl.sh backup [dir]          database dump, evidence and .env into a dated folder
+./ctl.sh backup [dir] [--keep N]   database dump, evidence and .env into a dated folder; prune to N
+./ctl.sh autostart on|off      start at boot and back up daily (systemd)
 ./ctl.sh restore <folder>      restore a backup (asks first), then reindex
 ./ctl.sh upgrade-intel         re-derive techniques, verification and exposure for older findings
 ./ctl.sh destroy               remove everything, including collected data
@@ -432,8 +433,14 @@ git clone git@github.com:Maerih/kivuli.git && cd kivuli
 KIVULI_DOCKER=system ./ctl.sh start            # or plain ./ctl.sh start for folder-local rootless Docker
 ./ctl.sh https intel.example.org you@example.org   # HTTPS with a Let's Encrypt certificate
 ./ctl.sh doctor                                 # containers, API, Tor, disk, HTTPS
+sudo KIVULI_DOCKER=system ./ctl.sh autostart on # start at boot, back up daily at 03:30 (newest 14 kept)
 ./ctl.sh update                                 # later: pull from GitHub, rebuild, restart
 ```
+
+Container logs are rotated (5 files of 20 MB per container), so a server left
+running does not fill its disk with logs. `./ctl.sh backup --keep N` deletes
+all but the newest N backups it made; the daily timer uses `--keep 14`. Copy
+backups off the server too: they hold the database and the keys to read it.
 
 `./ctl.sh https` needs the domain's DNS to point at the server and ports 80
 and 443 open. It starts Caddy in front of the console, sets

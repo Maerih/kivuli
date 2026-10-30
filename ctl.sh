@@ -232,7 +232,9 @@ Usage: ./ctl.sh <command>
   reindex            Rebuild the search index from PostgreSQL
   test               Run the backend test suite
   lock               Re-pin backend dependencies after editing requirements.txt
-  backup [dir]       Dump the database and evidence to a dated folder
+  backup [dir] [--keep N]
+                     Dump the database and evidence to a dated folder; --keep N deletes all but the newest N
+  autostart on|off   Start at boot and back up daily (systemd)
   restore <folder>   Restore a backup made by 'backup'
   upgrade-intel      Backfill new intelligence onto findings collected by an older release
   manage <args>      Run a backend management command (see: manage --help)
@@ -303,6 +305,74 @@ case "$cmd" in
 		echo
 		echo "Console: https://$domain  (the certificate is issued on the first request; give it a minute)"
 		echo "Check it with: ./ctl.sh doctor"
+		;;
+	autostart)
+		# Start Kivuli when the server boots, and back it up daily (keeping 14), with systemd.
+		case "${1:-}" in
+			on | off) ;;
+			*) echo "Usage: ./ctl.sh autostart on|off" >&2; exit 1 ;;
+		esac
+		if [ "$MODE" = "system" ]; then
+			[ "$(id -u)" = 0 ] || { echo "With system Docker this needs root: sudo KIVULI_DOCKER=system ./ctl.sh autostart ${1}" >&2; exit 1; }
+			unit_dir=/etc/systemd/system ctl=(systemctl) target=multi-user.target after="docker.service network-online.target"
+		else
+			unit_dir="$HOME/.config/systemd/user" ctl=(systemctl --user) target=default.target after="network-online.target"
+		fi
+		if [ "$1" = "off" ]; then
+			"${ctl[@]}" disable --now kivuli-backup.timer kivuli.service 2>/dev/null || true
+			rm -f "$unit_dir/kivuli.service" "$unit_dir/kivuli-backup.service" "$unit_dir/kivuli-backup.timer"
+			"${ctl[@]}" daemon-reload
+			echo "Autostart and daily backups are off."
+			exit 0
+		fi
+		mkdir -p "$unit_dir"
+		cat >"$unit_dir/kivuli.service" <<UNIT
+[Unit]
+Description=Kivuli dark-web research workstation
+After=$after
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=KIVULI_DOCKER=$MODE
+WorkingDirectory=$ROOT
+ExecStart=$ROOT/ctl.sh start
+ExecStop=$ROOT/ctl.sh stop
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=$target
+UNIT
+		cat >"$unit_dir/kivuli-backup.service" <<UNIT
+[Unit]
+Description=Kivuli daily backup (keeps the newest 14)
+
+[Service]
+Type=oneshot
+Environment=KIVULI_DOCKER=$MODE
+WorkingDirectory=$ROOT
+ExecStart=$ROOT/ctl.sh backup --keep 14
+UNIT
+		cat >"$unit_dir/kivuli-backup.timer" <<UNIT
+[Unit]
+Description=Kivuli daily backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+		"${ctl[@]}" daemon-reload
+		"${ctl[@]}" enable kivuli.service
+		"${ctl[@]}" enable --now kivuli-backup.timer
+		echo "Kivuli now starts at boot and is backed up daily at about 03:30 to $ROOT/backups (newest 14 kept)."
+		if [ "$MODE" != "system" ] && [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; then
+			echo "For a user service to start at boot without you logging in, enable lingering once: sudo loginctl enable-linger $USER"
+		fi
 		;;
 	shell)
 		env_init
@@ -396,8 +466,17 @@ print('  exits through Tor' if s.get('is_tor') else '  ! not confirmed yet: ' + 
 		;;
 	backup)
 		# Database dump plus the evidence volume. Keep .env with it: the keys inside are needed to read both.
+		# --keep N then deletes all but the newest N backups in that folder (only folders this command made).
+		dir="$ROOT/backups" keep=""
+		while [ $# -gt 0 ]; do
+			case "$1" in
+				--keep) keep="${2:-}"; shift 2 ;;
+				*) dir="$1"; shift ;;
+			esac
+		done
+		if [ -n "$keep" ] && ! [ "$keep" -ge 1 ] 2>/dev/null; then echo "--keep needs a number of backups, at least 1" >&2; exit 1; fi
 		daemon_start
-		dest="${1:-$ROOT/backups}/kivuli-$(date +%Y%m%d-%H%M%S)"
+		dest="$dir/kivuli-$(date +%Y%m%d-%H%M%S)"
 		umask 077 # the dump holds collected intelligence and password hashes
 		mkdir -p "$dest"
 		docker compose exec -T postgres pg_dump -U kivuli -Fc kivuli >"$dest/database.dump"
@@ -405,6 +484,12 @@ print('  exits through Tor' if s.get('is_tor') else '  ! not confirmed yet: ' + 
 		cp .env "$dest/env.backup" && chmod 600 "$dest/env.backup"
 		echo "Backup written to $dest ($(du -sh "$dest" | cut -f1))"
 		echo "It contains secrets (env.backup). Store it encrypted."
+		if [ -n "$keep" ]; then
+			# Newest first by name (the timestamp); only complete backups made by this command are candidates.
+			find "$dir" -maxdepth 1 -type d -name 'kivuli-[0-9]*-[0-9]*' -exec test -f '{}/database.dump' ';' -print | sort -r | tail -n +"$((keep + 1))" | while read -r old; do
+				rm -rf -- "$old" && echo "Removed old backup $(basename "$old")"
+			done
+		fi
 		;;
 	restore)
 		[ -f "${1:-}/database.dump" ] || { echo "Usage: ./ctl.sh restore <backup-folder>" >&2; exit 1; }
