@@ -171,7 +171,7 @@ export function Notes({ objectType, objectId }: { objectType: string; objectId: 
   );
 }
 
-export function AddToCase({ objectType, objectId, size = "md", note = "", label = "Add to case" }: { objectType: "finding" | "ioc" | "entity" | "query" | "graph"; objectId: string; size?: "sm" | "md"; note?: string; label?: string }) {
+export function AddToCase({ objectType, objectId, size = "md", note = "", label = "Add to case" }: { objectType: "finding" | "ioc" | "entity" | "query" | "graph" | "chain"; objectId: string; size?: "sm" | "md"; note?: string; label?: string }) {
   const { canWrite } = useSession();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");

@@ -946,6 +946,24 @@ specification. Authenticated with an API key as a bearer token, or as the
 password of HTTP Basic with any user name. Every path answers with and without
 its trailing slash.
 
+## 13a. Blockchain tracing
+
+`app/chain/`, with the enricher doing the fetching. An address is recognised and
+normalised (`addresses.py`: shape plus a base58check or EIP-55 check), then the
+enricher reads a public explorer through the egress proxy — Blockstream for
+Bitcoin, BlockCypher for Ethereum, TronGrid for TRON/USDT — none needing a key.
+Each explorer's response is reduced to one shape (`providers.py`): balance,
+totals, first and last activity, and counterparties as aggregated flows, with
+Bitcoin's co-spent inputs recorded for clustering. The enricher hands the result
+to `pipeline.store_chain`, which labels the address (`labels.py`: a small
+verified list of OFAC and exchange addresses, then whether it appears in a
+collected finding, then a shape heuristic), and stores it in `chain_addresses`
+with the flows in `chain_edges`. The graph an analyst sees is the address, its
+direct counterparties and the edges among them; expanding a node looks its
+counterparties up, which fills the graph in. Everything is read-only public
+chain data; no key is held, nothing is signed or broadcast. Monero and other
+chains are recognised but have no on-chain lookup.
+
 ## 14. Access control
 
 | Control | Implementation |

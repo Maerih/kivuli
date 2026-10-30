@@ -53,6 +53,7 @@ RE_BTC = re.compile(r"(?<![A-Za-z0-9])([13][a-km-zA-HJ-NP-Z1-9]{25,34})(?![A-Za-
 RE_BECH32 = re.compile(r"(?<![A-Za-z0-9])(bc1[ac-hj-np-z02-9]{11,71})(?![A-Za-z0-9])")
 RE_ETH = re.compile(r"(?<![A-Za-z0-9])(0x[a-fA-F0-9]{40})(?![A-Za-z0-9])")
 RE_XMR = re.compile(r"(?<![A-Za-z0-9])([48][0-9AB][1-9A-HJ-NP-Za-km-z]{93})(?![A-Za-z0-9])")
+RE_TRON = re.compile(r"(?<![A-Za-z0-9])(T[1-9A-HJ-NP-Za-km-z]{33})(?![A-Za-z0-9])")
 RE_TELEGRAM = re.compile(r"(?:t\.me|telegram\.me)/(?!joinchat|share|s/)\+?([A-Za-z][A-Za-z0-9_]{3,31})", re.I)
 RE_LABELLED_HANDLE = re.compile(
     r"\b(?:telegram|tg|jabber|xmpp|tox|username|user|author|seller|posted by)\s*[:=]\s*@?"
@@ -199,6 +200,9 @@ def extract_iocs(text: str) -> tuple[list[Indicator], set[str]]:
     for m in RE_BTC.finditer(rest):
         if _btc_checksum_ok(m.group(1)):
             col.add("crypto", m.group(1), m.start())
+    for m in RE_TRON.finditer(rest):
+        if _btc_checksum_ok(m.group(1)):
+            col.add("crypto", m.group(1), m.start())
     rest = _blank(rest, spans)
 
     for pattern in (RE_SHA256, RE_SHA1, RE_MD5):
@@ -255,7 +259,7 @@ def detect_indicator(token: str) -> tuple[str, str] | None:
         return "hash", token.lower()
     if RE_ETH.fullmatch(token):
         return "crypto", token.lower()
-    if RE_BECH32.fullmatch(token) or RE_XMR.fullmatch(token) or (RE_BTC.fullmatch(token) and _btc_checksum_ok(token)):
+    if RE_BECH32.fullmatch(token) or RE_XMR.fullmatch(token) or ((RE_BTC.fullmatch(token) or RE_TRON.fullmatch(token)) and _btc_checksum_ok(token)):
         return "crypto", token
     if "/" in token:
         try:

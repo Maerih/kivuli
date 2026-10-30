@@ -12,7 +12,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.extract.iocs import defang
 from app.intel import stix
-from app.models import Alert, AuditLog, Case, CaseItem, CrawlJob, Document, DocumentEntity, DocumentIoc, DocumentVersion, Entity, Ioc, Note, User, utcnow
+from app.models import Alert, AuditLog, Case, CaseItem, ChainAddress, CrawlJob, Document, DocumentEntity, DocumentIoc, DocumentVersion, Entity, Ioc, Note, User, utcnow
 from app.reports import render
 from app.security import admin, analyst, audit, viewer
 
@@ -114,6 +114,12 @@ def _expanded(db: Session, case: Case) -> dict:
     out["pinned_items"] = [{"item_id": i.id, "object_type": i.object_type, "object_id": i.object_id, "note": i.note} for i in items if i.object_type in ("ioc", "entity")]
     out["hunts"] = [{"item_id": i.id, "kind": i.object_type, "ref": i.object_id, "text": i.note, "added_at": iso(i.added_at), "added_by": users.get(i.added_by or 0, "")}
                     for i in items if i.object_type in ("query", "graph")]
+    chain_addrs = [i for i in items if i.object_type == "chain"]
+    rows = {r.address: r for r in db.scalars(select(ChainAddress).where(ChainAddress.address.in_([i.object_id for i in chain_addrs])))} if chain_addrs else {}
+    out["wallets"] = [{"item_id": i.id, "address": i.object_id, "note": i.note, "added_at": iso(i.added_at), "added_by": users.get(i.added_by or 0, ""),
+                       "chain": (rows[i.object_id].chain if i.object_id in rows else ""), "label": (rows[i.object_id].label if i.object_id in rows else ""),
+                       "category": (rows[i.object_id].category if i.object_id in rows else "unknown"), "token": (rows[i.object_id].token if i.object_id in rows else ""),
+                       "balance": (rows[i.object_id].balance if i.object_id in rows else None)} for i in chain_addrs]
     # Preserved evidence: a specific capture of a page, pinned so it stays with the investigation whatever happens to the site.
     out["evidence"] = []
     preserved = [i for i in items if i.object_type == "evidence" and ":" in i.object_id]
@@ -199,8 +205,10 @@ def add_item(case_id: int, body: ItemIn, request: Request, db: Session = Depends
         exists = True
     elif body.object_type in ("ioc", "entity") and body.object_id.isdigit():
         exists = db.get(Ioc if body.object_type == "ioc" else Entity, int(body.object_id))
+    elif body.object_type == "chain":
+        exists = True  # a wallet address; the chain tables fill in when it is looked up
     else:
-        raise HTTPException(400, "object_type must be finding, ioc, entity, query or graph")
+        raise HTTPException(400, "object_type must be finding, ioc, entity, query, graph or chain")
     if exists is None:
         raise HTTPException(404, "Object not found")
     if db.scalar(select(CaseItem.id).where(CaseItem.case_id == case.id, CaseItem.object_type == body.object_type, CaseItem.object_id == body.object_id)):

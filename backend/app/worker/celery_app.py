@@ -19,7 +19,7 @@ _INCLUDE = {
     "crawler": ["app.worker.crawl_tasks"],
     "pipeline": ["app.worker.pipeline_tasks", "app.worker.intel_tasks"],
     "notify": ["app.worker.notify_tasks"],
-    "enricher": ["app.worker.enrich_tasks"],
+    "enricher": ["app.worker.enrich_tasks", "app.worker.chain_tasks"],
 }
 
 celery_app = Celery("kivuli", broker=settings.redis_url, include=_INCLUDE.get(settings.role, []))
@@ -43,6 +43,7 @@ celery_app.conf.update(
         "notify.*": {"queue": "notify"},
         "enrich.*": {"queue": "enrich"},
         "ai.*": {"queue": "enrich"},
+        "chain.*": {"queue": "enrich"},
     },
     task_soft_time_limit=240,
     task_time_limit=300,

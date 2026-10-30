@@ -506,6 +506,19 @@ click a node to re-centre; *Bookmark to case* saves the node.
 technique appears in what you collected. Click a technique for its description,
 the findings tagged with it and the groups known to use it.
 
+**Crypto tracer.** Trace a Bitcoin, Ethereum or TRON (USDT) wallet. Paste an
+address, or press *Trace wallet* on any crypto indicator. You get the balance,
+total received and sent, first and last activity, and a graph of the flow of
+funds: each node is an address, each arrow a flow with its amount. *Expand* a
+counterparty to look it up and follow the money one hop further; a dashed node
+is one not looked up yet. Addresses stand out when they are sanctioned (OFAC),
+a mixer, a high-throughput service, or already seen in your collected
+intelligence. Bitcoin addresses spent together are flagged as one wallet
+(common-input clustering). *Add to investigation* pins a wallet to a case. It
+reads only public blockchain data; nothing is signed or sent. Monero and some
+other chains are recognised but cannot be looked up on-chain; they can still be
+traced where they appear in collected intelligence.
+
 ## 12. Exposure
 
 **Identity exposure.** Accounts, sessions and secrets found in leaks and
@@ -609,3 +622,4 @@ The full list is in [COVERAGE.md](COVERAGE.md).
 | **KEV** | CISA's catalogue of vulnerabilities known to be exploited |
 | **EPSS** | Probability that a vulnerability is exploited in the next 30 days |
 | **STIX / TAXII** | Standard format and transport for sharing threat intelligence |
+| **Common-input clustering** | Bitcoin addresses spent together in one transaction, so likely the same wallet |

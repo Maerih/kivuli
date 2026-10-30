@@ -128,3 +128,16 @@ export interface SearchResult {
   did_you_mean: string | null;
   sources?: { id: number; count: number; latest: string | null; name: string; category: string; network: string; host: string }[];
 }
+
+
+export interface ChainNode {
+  address: string; chain: string; enriched: boolean; category: string; category_label: string; label: string;
+  balance: number | null; token: string; total_in?: number; total_out?: number; tx_count: number | null;
+  counterparty_count?: number; truncated?: boolean; in_intel: boolean; co_spent?: string[]; first_tx?: string | null;
+  last_tx?: string | null; risk: boolean; error?: string; defanged: string;
+}
+export interface ChainEdge { src: string; dst: string; value: number; tx_count: number; sample_txid: string; first_seen: string | null; last_seen: string | null }
+export interface ChainGraph {
+  address: string; chain: string; chain_label: string; can_look_up: boolean; enriched: boolean; root: ChainNode;
+  nodes: ChainNode[]; edges: ChainEdge[]; findings: FindingSummary[]; note: string;
+}

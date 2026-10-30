@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Crosshair, Radio, RefreshCw, Share2, ShieldOff } from "lucide-react";
+import { Coins, ArrowLeft, Crosshair, Radio, RefreshCw, Share2, ShieldOff } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AddToCase, Defanged, FindingRow, Notes } from "@/components/bits";
@@ -53,6 +53,7 @@ export default function IndicatorPage() {
         actions={<>
           <Link href={`/search?q=${encodeURIComponent(i.value)}`}><Button>Search findings</Button></Link>
           {i.type === "cve" && <Link href={`/vulnerabilities/${i.value}`}><Button>Vulnerability details</Button></Link>}
+          {i.type === "crypto" && <Link href={`/crypto?address=${encodeURIComponent(i.value)}`}><Button><Coins className="h-3.5 w-3.5" /> Trace wallet</Button></Link>}
           {canWrite && WATCHABLE.has(i.type) && <Link href={`/watchlists?value=${encodeURIComponent(i.value)}`}><Button><Crosshair className="h-3.5 w-3.5" /> Watch</Button></Link>}
           <Link href={`/graph?node=ioc:${i.id}`}><Button><Share2 className="h-3.5 w-3.5" /> Relationships</Button></Link>
           <AddToCase objectType="ioc" objectId={String(i.id)} />

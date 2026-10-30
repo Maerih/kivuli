@@ -626,3 +626,47 @@ class ApiKey(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+CHAIN_CATEGORIES = ("sanctioned", "exchange", "mixer", "service", "distributor", "collector", "wallet-cluster", "personal", "intel", "unknown")
+
+
+class ChainAddress(Base):
+    """A cryptocurrency address the platform has looked up on-chain. Global, like an indicator."""
+
+    __tablename__ = "chain_addresses"
+    address: Mapped[str] = mapped_column(String(128), primary_key=True)
+    chain: Mapped[str] = mapped_column(String(8), index=True)
+    token: Mapped[str] = mapped_column(String(32), default="")
+    label: Mapped[str] = mapped_column(String(160), default="")  # a known name, when there is one
+    category: Mapped[str] = mapped_column(String(24), default="unknown", index=True)
+    balance: Mapped[float] = mapped_column(Float, default=0.0)
+    total_in: Mapped[float] = mapped_column(Float, default=0.0)
+    total_out: Mapped[float] = mapped_column(Float, default=0.0)
+    tx_count: Mapped[int] = mapped_column(Integer, default=0)
+    counterparty_count: Mapped[int] = mapped_column(Integer, default=0)
+    first_tx_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    last_tx_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    truncated: Mapped[bool] = mapped_column(Boolean, default=False)  # more transactions than examined
+    in_intel: Mapped[bool] = mapped_column(Boolean, default=False)  # appears in a collected finding
+    co_spent: Mapped[list[str]] = mapped_column(ARRAY(String(128)), default=list)  # addresses in the same wallet cluster
+    enriched_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class ChainEdge(Base):
+    """A flow of value between two addresses, aggregated over the transactions examined."""
+
+    __tablename__ = "chain_edges"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    chain: Mapped[str] = mapped_column(String(8), index=True)
+    src: Mapped[str] = mapped_column(String(128), index=True)  # value leaves src
+    dst: Mapped[str] = mapped_column(String(128), index=True)  # value arrives at dst
+    value: Mapped[float] = mapped_column(Float, default=0.0)
+    tx_count: Mapped[int] = mapped_column(Integer, default=1)
+    sample_txid: Mapped[str] = mapped_column(String(80), default="")
+    first_seen_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+
+    __table_args__ = (UniqueConstraint("chain", "src", "dst", name="uq_chain_edges"),)

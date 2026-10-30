@@ -1,6 +1,6 @@
 # Reference (generated)
 
-Generated from the running code on 2026-10-07 by `tools/gen_reference.py`. Do not edit by hand; regenerate after a change:
+Generated from the running code on 2026-10-30 by `tools/gen_reference.py`. Do not edit by hand; regenerate after a change:
 
 ```bash
 ./ctl.sh docker compose exec -T api python - < tools/gen_reference.py > docs/REFERENCE.md
@@ -73,6 +73,16 @@ All paths are under `/api`. A request is authenticated by the session cookie (co
 | DELETE | `/cases/{case_id}/items/{item_id}` | analyst | Detach an item. |
 | GET | `/cases/{case_id}/report` | viewer | Export: `format=html` (printable report), `json`, `csv` (indicators) or `stix` (STIX 2.1 bundle). |
 | GET | `/cases/{case_id}/timeline` | viewer | Everything that happened in an investigation, in order: what the sources reported, what was collected, what alerted, and what analysts did. |
+
+### chain
+
+| Method | Path | Role | What it does |
+|---|---|---|---|
+| GET | `/chain/jobs/{job_id}` | viewer | Job |
+| POST | `/chain/lookup` | analyst | Look an address up on-chain. Returns a job to poll; the result lands in the graph. |
+| GET | `/chain/{address}` | viewer | A looked-up address, the flow around it, and where it appears in collected intelligence. |
+| POST | `/chain/{address}/case` | analyst | Pin a wallet (and the trace rooted at it) to an investigation. |
+| POST | `/chain/{address}/expand` | analyst | Look up the counterparties of an address that have not been looked up yet: the next hop. |
 
 ### exposure
 
@@ -229,7 +239,7 @@ Every TAXII path also answers without its trailing slash, because reverse proxie
 | GET | `/healthz` | public | Liveness probe for the container. |
 | GET | `/metrics` | analyst | Prometheus exposition. Scrape with an API key: Authorization: Bearer <key>. |
 
-130 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
+135 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
 
 ## Data model
 
@@ -356,6 +366,49 @@ unique (case_id, object_type, object_id).
 | `created_at` | DATETIME |  |
 | `updated_at` | DATETIME |  |
 | `closed_at` | DATETIME | null |
+
+### `chain_addresses`
+
+A cryptocurrency address the platform has looked up on-chain. Global, like an indicator.
+
+| Column | Type | Notes |
+|---|---|---|
+| `address` | varchar(128) | PK |
+| `chain` | varchar(8) | idx |
+| `token` | varchar(32) |  |
+| `label` | varchar(160) |  |
+| `category` | varchar(24) | idx |
+| `balance` | FLOAT |  |
+| `total_in` | FLOAT |  |
+| `total_out` | FLOAT |  |
+| `tx_count` | integer |  |
+| `counterparty_count` | integer |  |
+| `first_tx_at` | DATETIME | null |
+| `last_tx_at` | DATETIME | null |
+| `truncated` | boolean |  |
+| `in_intel` | boolean |  |
+| `co_spent` | ARRAY |  |
+| `enriched_at` | DATETIME | null |
+| `error` | text |  |
+| `created_at` | DATETIME |  |
+
+### `chain_edges`
+
+A flow of value between two addresses, aggregated over the transactions examined.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | PK |
+| `chain` | varchar(8) | idx |
+| `src` | varchar(128) | idx |
+| `dst` | varchar(128) | idx |
+| `value` | FLOAT |  |
+| `tx_count` | integer |  |
+| `sample_txid` | varchar(80) |  |
+| `first_seen_at` | DATETIME | null |
+| `last_seen_at` | DATETIME | null |
+
+unique (chain, src, dst).
 
 ### `crawl_jobs`
 
@@ -929,7 +982,7 @@ The `beat` container fires these; the named worker role runs them.
 | every 60 s | `pipeline.schedule_due` | pipeline |
 | every 300 s | `pipeline.sync_provider_keys` | pipeline |
 
-Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `notify.*` → queue `notify`, `enrich.*` → queue `enrich`, `ai.*` → queue `enrich`.
+Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `notify.*` → queue `notify`, `enrich.*` → queue `enrich`, `ai.*` → queue `enrich`, `chain.*` → queue `enrich`.
 
 ## Enumerations
 

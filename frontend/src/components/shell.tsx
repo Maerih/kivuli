@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Activity, Bell, Briefcase, Bug, ChartColumn, Crosshair, Fingerprint, Grid3x3, KeyRound, LayoutDashboard, LogOut, Menu, Moon, Plug, Radar, Scan, Search, Settings, Share2, ShieldCheck, Siren, Sun, Users, X,
+  Activity, Bell, Briefcase, Bug, ChartColumn, Coins, Crosshair, Fingerprint, Grid3x3, KeyRound, LayoutDashboard, LogOut, Menu, Moon, Plug, Radar, Scan, Search, Settings, Share2, ShieldCheck, Siren, Sun, Users, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -27,6 +27,7 @@ const NAV = [
     { href: "/entities", label: "Actors & entities", icon: Users },
     { href: "/indicators", label: "Indicators", icon: Fingerprint },
     { href: "/graph", label: "Relationships", icon: Share2 },
+    { href: "/crypto", label: "Crypto tracer", icon: Coins },
     { href: "/attack", label: "ATT&CK", icon: Grid3x3 },
   ] },
   { group: "Exposure", items: [

@@ -203,6 +203,10 @@ limits. **Not built** is absent.
 | Source-to-source links | Partial | In the source profile, not yet in the graph |
 | Multi-hop path finding between two entities | Not built | |
 | Actor and campaign clustering | Not built | |
+| Crypto wallet tracing (BTC, ETH, TRON/USDT): balance, flow graph, hop expansion | Built | Public blockchain explorers, keyless; read-only |
+| Wallet labelling: sanctioned/OFAC, mixers, exchanges, in-intelligence, shape heuristics | Built | Small verified built-in list plus heuristics and our own findings |
+| Bitcoin common-input clustering | Built | |
+| Monero, Solana, Litecoin, Zcash lookup | Partial | Recognised and traceable in collected intelligence; no on-chain lookup |
 
 ### Monitoring and alerts
 
@@ -327,6 +331,8 @@ against the real thing.
 | AI analyst | Live (rejection), Unproven (answers) | Anthropic rejected an invalid key. No model answer has ever been seen |
 | KEV sync, EPSS, NVD severity | Live | |
 | Passive attack-surface discovery | Live | On `example.com` |
+| Crypto tracer: BTC, ETH, TRON lookup; flow graph; OFAC/mixer labels; hop expand; pin to investigation | Live | Real addresses through the egress proxy (BTC 348 txs; Tornado Cash labelled sanctioned; USDT TRC20) |
+| Crypto tracer console page | Unproven (visual) | Type-checked and built; API fully proven; the page was not rendered signed-in |
 | API keys, scopes, revocation | Live | |
 | TAXII discovery, collections, paging, manifests | Live | With curl-style clients, not with a named SIEM product |
 | STIX import and export | Live | Round trip with a synthetic bundle |

@@ -16,7 +16,7 @@ from app.extract.lang import detect_language
 from app.db import session_scope
 from app.extract.redact import RE_COMBO
 from app.intel import attack, priority, quality
-from app.models import (Alert, Asset, Document, DocumentEntity, DocumentIoc, Enrichment, Entity, Exposure, Ioc, Rule, Vulnerability,
+from app.models import (Alert, Asset, ChainAddress, ChainEdge, Document, DocumentEntity, DocumentIoc, Enrichment, Entity, Exposure, Ioc, Rule, Vulnerability,
                         Watchlist, utcnow)
 from app.search import index as search_index
 from app.search import service as search_service
@@ -38,6 +38,53 @@ def store_enrichment(*, subject_type: str, subject: str, provider: str, ok: bool
                                             verdict=verdict, score=score, summary=summary or {}, error=error)
         db.execute(stmt.on_conflict_do_update(index_elements=["subject_type", "subject", "provider"], set_={
             "fetched_at": stmt.excluded.fetched_at, "ok": ok, "verdict": verdict, "score": score, "summary": summary or {}, "error": error}))
+
+
+@celery_app.task(name="pipeline.store_chain")
+def store_chain(*, ok: bool, result: dict | None = None, address: str = "", chain: str = "", error: str = "",
+                requested_by: int | None = None):
+    """Store a looked-up address and the flows around it. The enricher has no database; this is where it lands."""
+    from app.chain import labels
+
+    with session_scope() as db:
+        if not ok:
+            addr = (result or {}).get("address") or address
+            stmt = pg_insert(ChainAddress).values(address=addr[:128], chain=chain or "unknown", enriched_at=utcnow(), error=error[:500])
+            db.execute(stmt.on_conflict_do_update(index_elements=["address"], set_={"enriched_at": utcnow(), "error": error[:500]}))
+            return
+        r = result or {}
+        addr = r["address"]
+        in_intel = db.scalar(select(func.count()).select_from(Ioc).where(Ioc.type == "crypto", Ioc.value == addr, Ioc.doc_count > 0)) or 0
+        category, label = labels.classify(r, bool(in_intel))
+        first = _chain_ts(r.get("first_seen")); last = _chain_ts(r.get("last_seen"))
+        stmt = pg_insert(ChainAddress).values(
+            address=addr[:128], chain=r["chain"], token=r.get("token", "")[:32], label=label[:160], category=category,
+            balance=r.get("balance", 0.0), total_in=r.get("total_in", 0.0), total_out=r.get("total_out", 0.0),
+            tx_count=r.get("tx_count", 0), counterparty_count=len(r.get("counterparties", [])), first_tx_at=first, last_tx_at=last,
+            truncated=bool(r.get("truncated")), in_intel=bool(in_intel), co_spent=r.get("co_spent", [])[:100], enriched_at=utcnow(), error="")
+        db.execute(stmt.on_conflict_do_update(index_elements=["address"], set_={
+            "chain": r["chain"], "token": r.get("token", "")[:32], "label": label[:160], "category": category,
+            "balance": r.get("balance", 0.0), "total_in": r.get("total_in", 0.0), "total_out": r.get("total_out", 0.0),
+            "tx_count": r.get("tx_count", 0), "counterparty_count": len(r.get("counterparties", [])), "first_tx_at": first,
+            "last_tx_at": last, "truncated": bool(r.get("truncated")), "in_intel": bool(in_intel),
+            "co_spent": r.get("co_spent", [])[:100], "enriched_at": utcnow(), "error": ""}))
+        for cp in r.get("counterparties", []):
+            src, dst = (addr, cp["address"]) if cp["direction"] == "out" else (cp["address"], addr)
+            e = pg_insert(ChainEdge).values(chain=r["chain"], src=src[:128], dst=dst[:128], value=cp.get("value", 0.0),
+                                            tx_count=cp.get("tx_count", 1), sample_txid=(cp.get("txid") or "")[:80],
+                                            first_seen_at=_chain_ts(cp.get("first_seen")), last_seen_at=_chain_ts(cp.get("last_seen")))
+            db.execute(e.on_conflict_do_update(constraint="uq_chain_edges", set_={
+                "value": cp.get("value", 0.0), "tx_count": cp.get("tx_count", 1), "sample_txid": (cp.get("txid") or "")[:80],
+                "last_seen_at": _chain_ts(cp.get("last_seen"))}))
+
+
+def _chain_ts(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 @celery_app.task(name="pipeline.store_provider_test")
