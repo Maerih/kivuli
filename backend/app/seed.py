@@ -49,6 +49,25 @@ ADDED_SOURCES = [
      "deepdark_catalog", "other", 70, 1440, {"list": "forum", "max_bytes": 4_000_000}, "approved"),
     ("deepdarkCTI: markets", "https://raw.githubusercontent.com/fastfire/deepdarkCTI/main/markets.md",
      "deepdark_catalog", "other", 70, 1440, {"list": "markets", "max_bytes": 4_000_000}, "approved"),
+    # Vendor threat-research blogs: where teams such as Unit 42 publish what their telemetry, incident
+    # response and malware analysis found. Every feed was checked to answer Kivuli's own user agent directly.
+    *[(name, url, "rss", "blog", trust, 360, {"max_bytes": 3_000_000}, "approved") for name, url, trust in (
+        ("Unit 42 (Palo Alto Networks)", "https://unit42.paloaltonetworks.com/feed/", 90),
+        ("Check Point Research", "https://research.checkpoint.com/feed/", 85),
+        ("Kaspersky Securelist", "https://securelist.com/feed/", 85),
+        ("ESET WeLiveSecurity", "https://www.welivesecurity.com/en/rss/feed/", 85),
+        ("SentinelLabs", "https://www.sentinelone.com/labs/feed/", 85),
+        ("Proofpoint Threat Insight", "https://www.proofpoint.com/us/threat-insight-blog.xml", 85),
+        ("Recorded Future", "https://www.recordedfuture.com/feed", 85),
+        ("The DFIR Report", "https://thedfirreport.com/feed/", 90),
+        ("Volexity", "https://www.volexity.com/feed/", 85),
+        ("Huntress", "https://www.huntress.com/blog/rss.xml", 80),
+        ("Zscaler ThreatLabz", "https://www.zscaler.com/blogs/feeds/security-research", 80),
+        ("Fortinet FortiGuard Labs", "https://feeds.fortinet.com/fortinet/blog/threat-research", 80),
+        ("Trend Micro Research", "https://feeds.feedburner.com/TrendMicroResearch", 80),
+        ("CrowdStrike", "https://www.crowdstrike.com/en-us/blog/feed", 85),
+        ("Rapid7", "https://www.rapid7.com/rss.xml", 75),
+    )],
 ]
 
 

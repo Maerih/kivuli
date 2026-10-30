@@ -70,6 +70,7 @@ Collected from a fresh install without any action:
 | The Hacker News, BleepingComputer | News | 60-90 min |
 | DataBreaches.net, HackRead, Security Affairs, The Record | News | 2 h |
 | Krebs on Security | Blog | 6 h |
+| Vendor threat research: Unit 42, Check Point Research, Kaspersky Securelist, ESET, SentinelLabs, Proofpoint, Recorded Future, The DFIR Report, Volexity, Huntress, Zscaler ThreatLabz, Fortinet FortiGuard, Trend Micro, CrowdStrike, Rapid7 | Research blogs | 6 h |
 | CISA Known Exploited Vulnerabilities | Vulnerability catalogue | 12 h |
 | CISA cybersecurity advisories | Advisories | 6 h |
 | Feodo Tracker, OpenPhish | Indicator feeds | 3-6 h |
