@@ -257,6 +257,9 @@ services:
       REQUIRE_MFA: ${REQUIRE_MFA:-false}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SHELL_ENABLED: ${SHELL_ENABLED:-false}
+      # IntelOwl's address (not its key), so Integrations can tell whether it is set up and allow-listed.
+      INTELOWL_URL: ${INTELOWL_URL:-}
+      INTELOWL_DIRECT: ${INTELOWL_DIRECT:-false}
       SHELL_SSH_PORT: ${SHELL_SSH_PORT:-22}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
@@ -307,7 +310,7 @@ services:
       - ./https/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
       - caddyconfig:/config
-    networks: [public]
+    networks: [public, shellnet]
     depends_on:
       web: {condition: service_started}
 
@@ -328,7 +331,8 @@ services:
     command: ["--base", "/shell/", "--ssh-host", "${SHELL_SSH_HOST:-host.docker.internal}", "--ssh-port", "${SHELL_SSH_PORT:-22}",
               "--allowed-origin", "https://${KIVULI_DOMAIN:-localhost}", "--ping-interval", "25000", "--ping-timeout", "20000", "--title", "Kivuli server shell"]
     extra_hosts: ["host.docker.internal:host-gateway"]
-    networks: [public]
+    # Its own network, shared only with Caddy: no other container can reach it and skip the gate.
+    networks: [shellnet]
 
   # Development inbox for alert email. Remove once a real relay is configured.
   mailpit:
@@ -344,6 +348,8 @@ services:
     networks: [mail, public]
 
 networks:
+  # Caddy and the server shell only. Not internal: the shell must reach this host's SSH server.
+  shellnet:
   public:
   tor_out:
   clear_out:

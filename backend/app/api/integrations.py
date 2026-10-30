@@ -190,7 +190,7 @@ def provider_status(db: Session = Depends(get_db), user: User = Depends(viewer))
         has_key = state["key_source"] in ("console", "env")
         out.append({"name": p.name, "label": p.label, "kinds": list(p.kinds), "tier": p.tier, "about": p.about, "env": p.key_setting.upper(), "hosts": list(p.hosts),
                     "takes_key": p.takes_key, "optional_key": p.optional_key, "signup": p.signup, "testable": p.probe is not None,
-                    "enabled": p.tier != "planned" and (not p.takes_key or p.optional_key or has_key),
+                    "enabled": p.tier != "planned" and (not p.takes_key or p.optional_key or has_key) and (p.configured is None or p.configured()),
                     "blocked_hosts": [h for h in p.hosts if h not in allowed] if p.tier != "planned" else [],
                     # A test result describes a key; once that key is gone it describes nothing.
                     "last_test": _last_test(row) if not p.takes_key or p.optional_key or has_key else None,

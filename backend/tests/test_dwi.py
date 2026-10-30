@@ -19,8 +19,15 @@ BUNDLE = [
     {"type": "identity", "id": "identity--victim2", "name": "Acme Logistics", "identity_class": "organization", "modified": "2026-10-28T08:00:00Z"},
     {"type": "relationship", "id": "relationship--t1", "relationship_type": "targets", "source_ref": "intrusion-set--qilin",
      "target_ref": "identity--victim2", "created": "2026-10-28T08:00:00Z", "modified": "2026-10-28T08:00:00Z"},
-    # IOC feed entries: an observable and an indicator.
-    {"type": "ipv4-addr", "id": "ipv4-addr--1", "value": "203.0.113.50"},
+    # IOC feed entries: observables and indicators, some of which Kivuli must not keep as they are.
+    {"type": "ipv4-addr", "id": "ipv4-addr--1", "value": "185.220.101.50"},
+    {"type": "ipv4-addr", "id": "ipv4-addr--private", "value": "10.1.2.3"},
+    {"type": "domain-name", "id": "domain-name--onion", "value": "lockbit3753ekiocyo5epmpy6klmejchjtzddoekjlnt6mu3qh4de2id.onion"},
+    {"type": "file", "id": "file--sha512", "hashes": {"SHA-512": "a" * 128}},
+    # An indicator tied to the alert by a relationship rather than object_refs.
+    {"type": "indicator", "id": "indicator--rel", "pattern": "[url:value = 'https://vpn.example-bank.co.ke/login']", "modified": "2026-10-01T00:00:00Z"},
+    {"type": "relationship", "id": "relationship--ind", "relationship_type": "indicates", "source_ref": "indicator--rel", "target_ref": "report--1",
+     "modified": "2026-10-01T00:00:00Z"},
     {"type": "indicator", "id": "indicator--2", "pattern": "[file:hashes.'SHA-256' = 'AB" + "c" * 62 + "']", "modified": "2026-09-01T00:00:00Z"},
 ]
 
@@ -40,7 +47,11 @@ def test_alerts_and_claims_from_a_bundle():
     assert "Dark Web Informer" not in access["victims"]  # the author identity is not a victim
     claim = by_title["Acme Logistics listed by Qilin"]
     assert claim["actor"] == "Qilin" and claim["victim"] == "Acme Logistics" and claim["published"].startswith("2026-10-28")
-    assert ("ip", "203.0.113.50") in iocs and ("hash", "ab" + "c" * 62) in iocs
+    assert ("ip", "185.220.101.50") in iocs and ("hash", "ab" + "c" * 62) in iocs
+    assert not any(v == "10.1.2.3" for _, v in iocs)  # a private address is not a threat indicator
+    assert ("onion", "lockbit3753ekiocyo5epmpy6klmejchjtzddoekjlnt6mu3qh4de2id.onion") in iocs  # typed as an onion service
+    assert not any(len(v) == 128 for _, v in iocs)  # SHA-512 is not tracked
+    assert ("url", "https://vpn.example-bank.co.ke/login") in access["iocs"]  # reached through a relationship
     text = dwi.alert_text(access, "feed")
     assert "Threat actor: AccessBroker99" in text and "domain: vpn.example-bank.co.ke" in text
 
@@ -50,5 +61,6 @@ def test_incremental_sync_keeps_changed_alerts_whole():
     ids = {o["id"] for o in fresh}
     assert "report--1" in ids and {"identity--victim1", "intrusion-set--seller", "indicator--1"} <= ids  # with what it refers to
     assert "relationship--t1" not in ids and "indicator--2" not in ids  # older than the cursor
+    assert {"relationship--ind", "indicator--rel"} <= ids  # tied to the changed alert by a relationship
     assert dwi.cursor_of(BUNDLE) == "2026-10-29T10:00:00Z"
     assert dwi.changed_since(BUNDLE, "") == BUNDLE  # first sync: everything

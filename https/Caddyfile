@@ -17,6 +17,9 @@
 	handle /shell* {
 		forward_auth web:3000 {
 			uri /api/shell/authorize
+			# The check is a plain request, even when the browser is opening the terminal's WebSocket.
+			header_up -Connection
+			header_up -Upgrade
 		}
 		reverse_proxy shell:3000
 	}

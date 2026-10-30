@@ -12,6 +12,7 @@ between them. ``split_bundle`` turns them into what Kivuli stores: one finding
 per alert or victim claim, and the indicator list for the feed. It is pure, so
 the mapping is tested without a key.
 """
+import ipaddress
 import secrets
 import time
 from datetime import datetime
@@ -19,6 +20,7 @@ from datetime import datetime
 from app.config import get_settings
 from app.enrich import keys
 from app.enrich.http import EnrichError, api_request
+from app.extract.iocs import detect_indicator
 from app.intel.stix import parse_pattern
 
 EXPORTS = {"feed": "/api/stix/export_feed.json", "ransomware": "/api/stix/export_ransomware.json", "iocs": "/api/stix/export_iocs.json"}
@@ -77,6 +79,10 @@ def changed_since(objects: list[dict], cursor: str) -> list[dict]:
         if o.get("id") in keep:
             keep.update(r for r in o.get("object_refs") or [] if r in by_id)
             keep.update(r for k in ("source_ref", "target_ref") if (r := o.get(k)) in by_id)
+    # And whatever is tied to a kept object by a relationship (an indicator that "indicates" an alert).
+    for o in objects:
+        if o.get("type") == "relationship" and (o.get("source_ref") in keep or o.get("target_ref") in keep):
+            keep.update(r for r in (o.get("id"), o.get("source_ref"), o.get("target_ref")) if r in by_id)
     return [o for o in objects if o.get("id") in keep]
 
 
@@ -84,14 +90,33 @@ def cursor_of(objects: list[dict]) -> str:
     return max((_when(o) for o in objects), default="")
 
 
+# What a STIX type may turn into once Kivuli has classified the value: a domain can be an onion service.
+_COMPATIBLE = {"domain": ("domain", "onion"), "ip": ("ip",), "url": ("url",), "email": ("email",), "hash": ("hash",)}
+
+
+def _normalise(kind: str, value: str) -> tuple[str, str] | None:
+    """Classify a value the way Kivuli does everywhere else, as the IOC-feed parser does.
+
+    A leak site's .onion becomes an onion, not a domain; hashes Kivuli does not
+    track (SHA-512 and the like) and private or reserved IP addresses are dropped.
+    """
+    found = detect_indicator(str(value).strip())
+    if not found or found[0] not in _COMPATIBLE.get(kind, ()):
+        return None
+    if found[0] == "ip" and not ipaddress.ip_address(found[1]).is_global:
+        return None
+    return found
+
+
 def _indicators(obj: dict) -> list[tuple[str, str]]:
+    raw: list[tuple[str, str]] = []
     if obj.get("type") == "indicator":
-        return parse_pattern(obj.get("pattern", ""))
-    if obj.get("type") in _SCO and obj.get("value"):
-        return [(_SCO[obj["type"]], str(obj["value"]))]
-    if obj.get("type") == "file":
-        return [("hash", str(h).lower()) for h in (obj.get("hashes") or {}).values() if h]
-    return []
+        raw = parse_pattern(obj.get("pattern", ""))
+    elif obj.get("type") in _SCO and obj.get("value"):
+        raw = [(_SCO[obj["type"]], str(obj["value"]))]
+    elif obj.get("type") == "file":
+        raw = [("hash", str(h)) for h in (obj.get("hashes") or {}).values() if h]
+    return [n for kind, value in raw if (n := _normalise(kind, value))]
 
 
 def _date(value: str) -> datetime | None:
