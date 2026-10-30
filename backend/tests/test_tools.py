@@ -76,3 +76,13 @@ def test_verdict_combination():
     assert _verdict([], False, [ok("InternetDB", "clean")], 0)[0] == "clean"
     assert _verdict([], True, [ok("x", "suspicious")], 2)[0] == "benign"
     assert _verdict([], False, [], 0) == ("unknown", ["Nothing known about it yet"])
+
+
+def test_timeline_links_chain_in_time_order():
+    from app.api.timeline import COMMON_PLATFORMS, _chain
+
+    when = {"a": "2026-10-03", "b": "2026-10-01", "c": "2026-10-02"}
+    # Joined oldest to newest, one line per step, not every pair.
+    assert _chain(["a", "b", "c", "a"], when) == [("b", "c"), ("c", "a")]
+    assert _chain(["a"], when) == []
+    assert "github.com" in COMMON_PLATFORMS and "cisa.gov" in COMMON_PLATFORMS

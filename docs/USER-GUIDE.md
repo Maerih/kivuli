@@ -509,6 +509,21 @@ is never contacted). For a domain or URL this includes the Wayback Machine: how
 many archived snapshots exist, the first and last, and how many distinct versions. *Mark benign* stops a harmless shared value from linking
 unrelated findings.
 
+**Event timeline.** Incidents over 7, 30 or 90 days on a time axis, one row
+per threat actor (the twelve busiest, then *Other actors* and *No named
+actor*). Each dot is a finding, coloured by type; larger dots are high or
+critical. Lines join events that are connected: *Same victim, different
+actors*; *Reported again* (the same actor naming the same victim, often a
+second tracker reporting one claim, drawn faint); *Same CVE*; and *Shared
+indicator* (only across different actors and different sources, and never a
+common platform domain, an indicator marked benign or one seen in more than
+25 findings, so boilerplate and leak-site addresses do not tie everything
+together). Hover a dot for its details; click it to highlight what it connects
+to and list those events; click an actor's name to show only that actor.
+*Possibly the same actor* lists actor names that keep claiming the same
+victims, usually one group that two trackers spell differently; open both
+profiles and use *Merge into it* if they match. Nothing is merged automatically.
+
 **Relationships.** A graph around any actor, organisation, malware, indicator
 or finding. Labelled lines are stated relationships; plain lines mean the two
 appear in the same findings. Click a legend entry to hide that type; double

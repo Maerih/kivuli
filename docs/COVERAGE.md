@@ -198,6 +198,7 @@ limits. **Not built** is absent.
 
 | Capability | Status | Notes |
 |---|---|---|
+| Event timeline by actor, linking same victim, same CVE and shared indicators; alias suggestions | Built | Indicator links only across actors and sources; common platforms excluded |
 | World map of countries named in findings, click-through to findings | Built | Natural Earth 1:110m (public domain); ISO numeric codes from pycountry |
 | Search everywhere from any indicator or entity | Built | |
 | Find connections from any indicator, entity or finding | Built | |

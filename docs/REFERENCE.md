@@ -145,6 +145,7 @@ All paths are under `/api`. A request is authenticated by the session cookie (co
 | GET | `/graph` | viewer | Relationship neighbourhood of an entity, indicator or finding. |
 | GET | `/iocs` | viewer | Indicators; filter by type and text. |
 | GET | `/iocs/{ioc_id}` | viewer | An indicator: where it appears with surrounding text, associated entities, and indicators seen with it. |
+| GET | `/timeline` | viewer | Incidents over time by actor, and the victims, CVEs and indicators that connect them. |
 
 ### reports
 
@@ -248,7 +249,7 @@ Every TAXII path also answers without its trailing slash, because reverse proxie
 | GET | `/healthz` | public | Liveness probe for the container. |
 | GET | `/metrics` | analyst | Prometheus exposition. Scrape with an API key: Authorization: Bearer <key>. |
 
-139 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
+140 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
 
 ## Data model
 
