@@ -386,6 +386,9 @@ or a separate broker for results.
 
 ```
 ./ctl.sh start | stop | restart | status
+./ctl.sh update                pull from git, rebuild, restart
+./ctl.sh https <domain> <email> | off   HTTPS with Let's Encrypt in front of the console
+./ctl.sh doctor                health check: containers, API, Tor, disk, HTTPS
 ./ctl.sh logs [service]        crawler, pipeline, notify, api, web, tor, egress, ...
 ./ctl.sh build [image]         rebuild after a code change (backend, web, tor, search)
 ./ctl.sh crawl                 crawl every active source now (research crawls are started in the console)
@@ -422,9 +425,28 @@ each against its published checksum, and the image builds install from that
 offline. The Tor image installs one Alpine package and may still take a while
 the first time; later starts reuse the cached layers.
 
+## Running it on a VPS
+
+```
+git clone git@github.com:Maerih/kivuli.git && cd kivuli
+KIVULI_DOCKER=system ./ctl.sh start            # or plain ./ctl.sh start for folder-local rootless Docker
+./ctl.sh https intel.example.org you@example.org   # HTTPS with a Let's Encrypt certificate
+./ctl.sh doctor                                 # containers, API, Tor, disk, HTTPS
+./ctl.sh update                                 # later: pull from GitHub, rebuild, restart
+```
+
+`./ctl.sh https` needs the domain's DNS to point at the server and ports 80
+and 443 open. It starts Caddy in front of the console, sets
+`PUBLIC_URL=https://<domain>` and `COOKIE_SECURE=true`, and keeps the console
+itself on 127.0.0.1, so only Caddy faces the internet. `./ctl.sh https off`
+goes back to localhost only. Rootless Docker cannot listen on ports below 1024
+unless `net.ipv4.ip_unprivileged_port_start` allows it; with
+`KIVULI_DOCKER=system` it can. `./ctl.sh update` refuses to run over local
+changes to tracked files. Back up before upgrading: `./ctl.sh backup`.
+
 ## Before exposing it beyond localhost
 
-- Put the console behind TLS and set `COOKIE_SECURE=true` and `PUBLIC_URL`.
+- Put the console behind TLS (`./ctl.sh https <domain> <email>`), which sets `COOKIE_SECURE=true` and `PUBLIC_URL`.
 - Replace the bundled search image (`search/Dockerfile`, OpenSearch minimal
   distribution, no auth - acceptable only because it is confined to an internal
   network) with the official image and its security plugin if the search node

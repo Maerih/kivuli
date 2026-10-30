@@ -195,13 +195,33 @@ env_upgrade() {
 	return 0
 }
 
-app_url() { echo "http://localhost:$(env_get WEB_PORT || true)"; }
+app_url() {
+	local domain
+	domain="$(env_get KIVULI_DOMAIN || true)"
+	if [ -n "$domain" ] && [ "$(env_get COMPOSE_PROFILES || true)" = "https" ]; then echo "https://$domain"; else echo "http://localhost:$(env_get WEB_PORT || true)"; fi
+}
+
+# Set KEY=VALUE in .env, replacing an existing line or adding one.
+env_set() {
+	if grep -q "^$1=" .env; then
+		local tmp
+		tmp="$(mktemp)"
+		awk -v k="$1" -v v="$2" 'BEGIN { FS = OFS = "=" } $1 == k { print k "=" v; next } { print }' .env >"$tmp" && cat "$tmp" >.env && rm -f "$tmp"
+	else
+		echo "$1=$2" >>.env
+	fi
+}
 
 usage() {
 	cat <<EOF
 Usage: ./ctl.sh <command>
 
   start              Start Docker and the whole stack
+  update             Pull the latest code from git, rebuild and restart
+  https <domain> <email>
+                     Serve the console over HTTPS with a Let's Encrypt certificate
+  https off          Back to the console on 127.0.0.1 only
+  doctor             Check the stack: containers, API, Tor, disk, HTTPS
   stop               Stop the stack and the Docker daemon
   restart            Stop, then start
   status             Show what is running
@@ -237,6 +257,83 @@ case "$cmd" in
 		echo "Console:      $(app_url)"
 		echo "Admin login:  $(env_get BOOTSTRAP_ADMIN_EMAIL)  (password is BOOTSTRAP_ADMIN_PASSWORD in .env)"
 		echo "Mail catcher: http://localhost:$(env_get MAILPIT_PORT)  (dev inbox for alert email)"
+		;;
+	update)
+		# The working tree must be clean: an update never discards your changes.
+		if [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+			echo "Local changes to tracked files; commit or stash them first:" >&2
+			git status --short --untracked-files=no >&2
+			exit 1
+		fi
+		git pull --ff-only
+		"$0" start
+		;;
+	https)
+		env_init
+		if [ "${1:-}" = "off" ]; then
+			env_set COMPOSE_PROFILES ""
+			env_set COOKIE_SECURE false
+			env_set PUBLIC_URL "http://localhost:$(env_get WEB_PORT)"
+			daemon_start
+			docker compose rm -sf https >/dev/null 2>&1 || true
+			docker compose up -d --no-build
+			echo "HTTPS is off. The console is on http://127.0.0.1:$(env_get WEB_PORT) (reach it through an SSH tunnel)."
+			exit 0
+		fi
+		domain="${1:-}" email="${2:-}"
+		if [ -z "$domain" ] || [ -z "$email" ] || ! echo "$domain" | grep -Eq '^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' || ! echo "$email" | grep -q '@'; then
+			echo "Usage: ./ctl.sh https <domain> <email>   e.g. ./ctl.sh https intel.example.org you@example.org" >&2
+			echo "The domain's DNS must point at this server, and ports 80 and 443 must be open." >&2
+			exit 1
+		fi
+		if [ "$MODE" = "rootless" ]; then
+			echo "Note: rootless Docker cannot listen on ports 80 and 443 unless the kernel allows it:" >&2
+			echo "  sudo sysctl net.ipv4.ip_unprivileged_port_start=80   (or run with KIVULI_DOCKER=system)" >&2
+		fi
+		env_set KIVULI_DOMAIN "$domain"
+		env_set ACME_EMAIL "$email"
+		env_set COMPOSE_PROFILES https
+		env_set PUBLIC_URL "https://$domain"
+		env_set COOKIE_SECURE true
+		env_set WEB_BIND 127.0.0.1
+		daemon_start
+		build_images
+		docker compose up -d --no-build
+		echo
+		echo "Console: https://$domain  (the certificate is issued on the first request; give it a minute)"
+		echo "Check it with: ./ctl.sh doctor"
+		;;
+	doctor)
+		daemon_start
+		ok=0
+		echo "Containers:"
+		docker compose ps --format '  {{.Service}}: {{.Status}}' | sort
+		for svc in api pipeline crawler enricher web egress tor search postgres redis; do
+			state="$(docker compose ps --format '{{.Service}} {{.State}}' | awk -v s="$svc" '$1 == s { print $2 }')"
+			[ "$state" = "running" ] || { echo "  ! $svc is not running ($state)"; ok=1; }
+		done
+		echo "API:"
+		if docker compose exec -T api python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/healthz',timeout=10)" 2>/dev/null; then
+			echo "  answering"
+		else
+			echo "  ! not answering"; ok=1
+		fi
+		echo "Tor:"
+		docker compose exec -T api python -c "
+import json, redis
+from app.config import get_settings
+s = json.loads(redis.Redis.from_url(get_settings().redis_url).get('kivuli:status:tor') or '{}')
+print('  exits through Tor' if s.get('is_tor') else '  ! not confirmed yet: ' + str(s.get('error') or 'no check has run'))" 2>/dev/null || echo "  ! could not read the Tor check"
+		echo "Disk:"
+		df -h "$ROOT" | awk 'NR == 2 { print "  " $4 " free of " $2 " (" $5 " used)" }'
+		used="$(df -P "$ROOT" | awk 'NR == 2 { gsub("%", "", $5); print $5 }')"
+		[ "${used:-0}" -lt 90 ] || { echo "  ! the disk is over 90% full"; ok=1; }
+		if [ "$(env_get COMPOSE_PROFILES)" = "https" ]; then
+			echo "HTTPS:"
+			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$(env_get KIVULI_DOMAIN)/login" || true)"
+			if [ "$code" = "200" ]; then echo "  https://$(env_get KIVULI_DOMAIN) answers"; else echo "  ! https://$(env_get KIVULI_DOMAIN) answered '$code' (DNS, ports 80/443, or the certificate is still being issued)"; ok=1; fi
+		fi
+		[ "$ok" = 0 ] && echo "All checks passed." || { echo "Some checks failed; see above. Logs: ./ctl.sh logs <service>"; exit 1; }
 		;;
 	stop)
 		if daemon_up; then docker compose stop; fi

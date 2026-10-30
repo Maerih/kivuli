@@ -1,0 +1,21 @@
+# HTTPS in front of the console, with a certificate from Let's Encrypt that
+# Caddy obtains and renews by itself. Enabled by ./ctl.sh https <domain> <email>.
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+{$KIVULI_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy web:3000 {
+		header_up X-Forwarded-Proto https
+	}
+	log {
+		output stdout
+		format console
+	}
+}
