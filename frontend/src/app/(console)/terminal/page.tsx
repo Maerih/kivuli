@@ -108,7 +108,7 @@ const COMMANDS: Record<string, Command> = {
         monthly: { month: string; claims: number; top_sectors: string[]; top_countries: { name: string }[] }[] };
       const p = await api<P>(`/entities/${a.id}/patterns`);
       print({ kind: "node", node: <span className="font-semibold text-ink">{link(`/entities/${a.id}`, a.name)}{a.aliases.length ? <span className="font-normal text-muted"> aka {a.aliases.join(", ")}</span> : null}</span> });
-      out(`${num(a.doc_count)} findings · ${num(p.claims)} claims · ${num(p.last_30_days)} in the last 30 days · typical gap ${p.median_gap_days ?? "—"} days`);
+      out(`${num(a.doc_count)} findings · ${num(p.claims)} claims · ${num(p.last_30_days)} in the last 30 days · typical gap ${p.median_gap_days === null ? "—" : `${p.median_gap_days} day${p.median_gap_days === 1 ? "" : "s"}`}`);
       const busiest = [...p.weekdays].sort((x, y) => y.count - x.count)[0];
       if (busiest?.count) out(`busiest day: ${busiest.day} · posts on: ${p.sites.map((s) => s.name).slice(0, 3).join(", ")}`, "muted");
       if (p.monthly.length) print({ kind: "rows", head: ["Month", "Claims", "Sectors", "Countries"], rows: [...p.monthly].reverse().slice(0, 6).map((m) => [m.month, num(m.claims), m.top_sectors.join(", "), m.top_countries.map((c) => c.name).join(", ")]) });
@@ -247,6 +247,8 @@ export default function TerminalPage() {
   const [history, setHistory] = useState<string[]>([]);
   const [cursor, setCursor] = useState(-1);
   const end = useRef<HTMLDivElement>(null);
+  // Commands run one after another: Enter always takes the line, even while one is still running.
+  const queue = useRef<Promise<void>>(Promise.resolve());
   const box = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setHistory(loadHistory()); box.current?.focus(); }, []);
@@ -284,7 +286,11 @@ export default function TerminalPage() {
   };
 
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !busy) { run(input); setInput(""); }
+    if (e.key === "Enter") {
+      const line = input;
+      setInput("");
+      queue.current = queue.current.then(() => run(line));
+    }
     else if (e.key === "ArrowUp" && history.length) {
       e.preventDefault();
       const i = cursor < 0 ? history.length - 1 : Math.max(0, cursor - 1);
@@ -330,8 +336,8 @@ export default function TerminalPage() {
         </div>
         <label className="flex items-center gap-2 border-t border-line px-4 py-2.5">
           <span className="select-none text-accent-ink">kivuli ›</span>
-          <input ref={box} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} disabled={busy} spellCheck={false} autoComplete="off"
-                 aria-label="Command" placeholder={busy ? "working…" : "type a command, e.g. verdict 185.220.101.4"} className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-muted" />
+          <input ref={box} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} spellCheck={false} autoComplete="off"
+                 aria-label="Command" placeholder={busy ? "working… (Enter queues the next command)" : "type a command, e.g. verdict 185.220.101.4"} className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-muted" />
         </label>
       </div>}
     </>
