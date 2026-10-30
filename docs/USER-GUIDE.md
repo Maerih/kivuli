@@ -286,6 +286,12 @@ that answered its check, after showing you the list.
 public RansomLook tracker. Name a group, or leave it empty for the groups most
 recently active in your findings.
 
+The platform also imports the **deepdarkCTI** catalogue (a public, curated list
+of dark-web ransomware sites, forums and markets): hundreds of entries appear in
+*Discovered*, each tagged with the list it came from. Nothing is collected from
+them until you approve it; forum and market entries are marked as likely needing
+a login or invitation, which the platform does not do.
+
 **Add source** adds a site, feed or public Telegram channel by address.
 
 ### Source profile

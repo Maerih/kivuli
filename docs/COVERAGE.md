@@ -72,7 +72,8 @@ Collected from a fresh install without any action:
 | Krebs on Security | Blog | 6 h |
 | CISA Known Exploited Vulnerabilities | Vulnerability catalogue | 12 h |
 | CISA cybersecurity advisories | Advisories | 6 h |
-| Feodo Tracker (botnet C2 addresses), OpenPhish (phishing URLs) | Indicator feeds | 6 h |
+| Feodo Tracker, OpenPhish, URLhaus | Indicator feeds | 3-6 h |
+| deepdarkCTI catalogue (ransomware sites, forums, markets) | Source discovery | daily |
 | Ahmia: banned onion services | Safety blocklist (hashes) | 24 h |
 
 Onion sources are not built in. They are discovered, starting about ten minutes
@@ -147,7 +148,7 @@ limits. **Not built** is absent.
 | Retry handling, dead-source detection | Built | |
 | Live view of pages as they are found | Built | By depth, with the page that led to each |
 | Queue and crawl management | Built | Start, watch, stop; at most twelve at once |
-| Automatic onion discovery | Partial | From trackers, links and crawls; not from directories or search engines |
+| Automatic onion discovery | Partial | From trackers, links, crawls and the deepdarkCTI catalogue; not yet from onion search engines |
 | Collection policy set in the console | Built | Never / leak sites / leak sites and relevant sites |
 | Page snapshots | Partial | Text and hashes; no rendered image |
 | Images and attachments | Not built | Deliberately |
@@ -311,6 +312,7 @@ against the real thing.
 | Content guardrail | Unit | |
 | Automatic discovery from trackers | Live | Fifteen leak sites filed from two runs |
 | Discovery from links on crawled pages | Live | Source links recorded; few so far |
+| deepdarkCTI catalogue import | Live | ~800 sources filed as candidates (450 leak sites, 225 forums, 116 markets), not auto-collected |
 | Collection policy auto-approval | Live | Eight sites approved on first application |
 | Research crawl: depth, limit, parent tracking, completion, stop | Live | Six pages of a benign onion site in thirty seconds |
 | Redaction; no secret in storage, API or export | Live | Synthetic leak: checked the stored text, every API response and the CSV |

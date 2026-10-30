@@ -27,6 +27,7 @@ CONNECTORS = {
     "telegram_public": "Public Telegram channel",
     "ioc_feed": "Indicator feed (plain text list)",
     "onion_blocklist": "Safety blocklist (hashes of banned onion services)",
+    "deepdark_catalog": "deepdarkCTI source catalogue (discovers sources)",
 }
 
 
@@ -393,10 +394,63 @@ def parse_onion_blocklist(body: str) -> ParseOutput:
     return out
 
 
+# deepdarkCTI (fastfire/deepdarkCTI, GPL-3.0): curated lists of dark-web sources, as markdown tables.
+# We read the list and file each live entry as a *discovered source* for review; nothing is collected
+# until approved. Credentials columns (some forum lists carry shared logins) are ignored entirely.
+_MD_LINK = re.compile(r"\[([^\]]*)\]\((https?://[^)\s]+)\)")
+_MD_BARE = re.compile(r"(https?://[^\s|)]+)")
+_LIST_CATEGORY = {"ransomware_gang": "ransomware_leak_site", "forum": "forum", "markets": "marketplace",
+                  "telegram_threat_actors": "other", "telegram_infostealer": "other", "search_engines": "other"}
+_DEAD = {"offline", "expired", "dead", "down", "removed", "seized", "closed", "scam", "exit"}
+
+
+def parse_deepdark_catalog(body: str, config: dict) -> ParseOutput:
+    out = ParseOutput()
+    list_name = (config or {}).get("list", "")
+    category = _LIST_CATEGORY.get(list_name, "other")
+    seen: set[str] = set()
+    for line in body.splitlines():
+        line = line.strip()
+        if not line.startswith("|") or set(line) <= set("|-: "):
+            continue  # not a data row, or the header separator
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if not cells:
+            continue
+        link = _MD_LINK.search(cells[0])
+        label, url = (link.group(1).strip(), link.group(2)) if link else ("", "")
+        if not url:
+            bare = _MD_BARE.search(cells[0])
+            url = bare.group(1) if bare else ""
+        if not url:
+            continue
+        status = cells[1].lower() if len(cells) > 1 else ""
+        if any(d in status for d in _DEAD):
+            continue  # do not file dead links
+        # t.me/+invite links need an account and cannot be read; skip them as sources.
+        if "/t.me/+" in url or "t.me/joinchat" in url:
+            continue
+        host = url.split("://", 1)[-1].split("/")[0].lower()
+        if not host or host in seen:
+            continue
+        seen.add(host)
+        # Context: the list it came from, plus any threat-actor / attack-type columns.
+        extra = [c for c in cells[2:5] if c and not c.startswith(("http", "[", "ONLINE", "online"))][:2]
+        context = f"deepdarkCTI {list_name.replace('_', ' ')}" + (f": {', '.join(extra)}" if extra else "")
+        if category in ("forum", "marketplace"):
+            context += " (login or invitation likely required)"
+        out.discovered.append({"url": url, "name": label or host[:40], "category": category, "context": context[:480]})
+        if len(out.discovered) >= 2000:
+            break
+    out.note = f"{len(out.discovered)} sources listed from deepdarkCTI/{list_name}"
+    return out
+
+
 def parse(connector: str, body: str, final_url: str, source_host: str, config: dict | None = None) -> ParseOutput:
     config = config or {}
     if connector == "onion_blocklist":
         return parse_onion_blocklist(body)
+    if connector == "deepdark_catalog":
+        return parse_deepdark_catalog(body, config)
     if connector == "telegram_public":
         return parse_telegram_public(body, final_url)
     if connector == "ioc_feed":

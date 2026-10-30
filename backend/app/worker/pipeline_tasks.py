@@ -72,7 +72,7 @@ def apply_collection_policy(db, source: Source) -> bool:
     return True
 
 
-def add_candidate(db, found: dict, parent: Source) -> bool:
+def add_candidate(db, found: dict, parent: Source, probe: bool = True) -> bool:
     """Record a discovered site for analyst review. Whether it is then collected is decided by the collection policy."""
     ok, _reason, host, network = validate_url(found["url"])
     if not ok or db.scalar(select(Source.id).where(Source.host == host).limit(1)):
@@ -87,9 +87,11 @@ def add_candidate(db, found: dict, parent: Source) -> bool:
     )
     db.add(candidate)
     db.flush()
-    # Check straight away whether the site answers, so the analyst reviewing it knows. A probe reads nothing into the platform.
-    candidate.last_checked_at = utcnow()
-    start_crawl(db, candidate, probe=True)
+    # Check straight away whether the site answers, so the analyst reviewing it knows. A probe reads nothing into
+    # the platform. A bulk catalogue import skips the immediate probe and lets the liveness sweep check over time.
+    if probe:
+        candidate.last_checked_at = utcnow()
+        start_crawl(db, candidate, probe=True)
     return True
 
 
@@ -324,12 +326,15 @@ def _ingest_fetch(result: dict, source_id: int, run_id: str, depth: int, probe: 
                 stmt = pg_insert(SourceLink).values(src_source_id=source.id, dst_host=target[:255], first_seen_at=now, last_seen_at=now, count=1)
                 db.execute(stmt.on_conflict_do_update(constraint="uq_source_links_pair", set_={"last_seen_at": now, "count": SourceLink.count + 1}))
 
-        if settings.discover_onion_links or connector == "ransomlook_group":
-            added = 0
+        catalog = connector == "deepdark_catalog"
+        if settings.discover_onion_links or connector == "ransomlook_group" or catalog:
+            added, cap = 0, (2000 if catalog else settings.max_candidates_per_crawl)
             for found in out.discovered:
-                if added >= settings.max_candidates_per_crawl:
+                if added >= cap:
                     break
-                added += add_candidate(db, found, source)
+                added += add_candidate(db, found, source, probe=not catalog)
+            if catalog:
+                entry.new_docs = added  # show how many sources the catalogue added this run
         db.commit()
 
 

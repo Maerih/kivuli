@@ -125,3 +125,35 @@ def test_collection_settings_are_validated():
         except ValueError:
             pass
     settings_store._cache.clear()
+
+
+def test_deepdark_catalog_parses_and_filters():
+    from app.worker.parsers import parse_deepdark_catalog
+
+    md = """# forums
+|Name|Status|Note|
+| ------ | ------ | ------ |
+|[Live Forum](http://liveabc234abc234abc234abc234abc234abc234abc234abc234ad.onion/)|ONLINE|carding|
+|[Dead Forum](http://deadxyz567xyz567xyz567xyz567xyz567xyz567xyz567xyz567yz.onion/)|OFFLINE||
+|[Clearnet Board](https://board.example.com/)|ONLINE||
+|[Invite](https://t.me/+secretInvite)|ONLINE||
+|[Dup](http://liveabc234abc234abc234abc234abc234abc234abc234abc234ad.onion/x)|ONLINE||
+"""
+    out = parse_deepdark_catalog(md, {"list": "forum"})
+    urls = {d["url"] for d in out.discovered}
+    assert any("liveabc234" in u for u in urls)          # live onion kept
+    assert any("board.example.com" in u for u in urls)   # clearnet kept
+    assert not any("deadxyz567" in u for u in urls)      # OFFLINE dropped
+    assert not any("t.me/+" in u for u in urls)          # invite link dropped
+    assert len(out.discovered) == 2                       # the duplicate host is not filed twice
+    assert all(d["category"] == "forum" for d in out.discovered)
+    assert all("login or invitation likely required" in d["context"] for d in out.discovered)
+    assert "deepdarkCTI forum" in out.discovered[0]["context"]
+
+
+def test_deepdark_catalog_maps_categories():
+    from app.worker.parsers import parse_deepdark_catalog
+
+    row = "|[X](http://abcde234abcde234abcde234abcde234abcde234abcde234abcde2ad.onion/)|ONLINE|"
+    assert parse_deepdark_catalog("|h|s|\n|---|---|\n" + row, {"list": "ransomware_gang"}).discovered[0]["category"] == "ransomware_leak_site"
+    assert parse_deepdark_catalog("|h|s|\n|---|---|\n" + row, {"list": "markets"}).discovered[0]["category"] == "marketplace"

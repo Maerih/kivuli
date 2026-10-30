@@ -1033,6 +1033,7 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 | `telegram_public` | Public Telegram channel |
 | `ioc_feed` | Indicator feed (plain text list) |
 | `onion_blocklist` | Safety blocklist (hashes of banned onion services) |
+| `deepdark_catalog` | deepdarkCTI source catalogue (discovers sources) |
 
 ### Alert destinations
 
