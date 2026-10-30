@@ -198,7 +198,10 @@ env_upgrade() {
 app_url() {
 	local domain
 	domain="$(env_get KIVULI_DOMAIN || true)"
-	if [ -n "$domain" ] && [ "$(env_get COMPOSE_PROFILES || true)" = "https" ]; then echo "https://$domain"; else echo "http://localhost:$(env_get WEB_PORT || true)"; fi
+	case ",$(env_get COMPOSE_PROFILES || true),$(env_get KIVULI_PROXY || true)," in
+		*,https,* | *,nginx,* | *,apache,*) [ -n "$domain" ] && { echo "https://$domain"; return; } ;;
+	esac
+	echo "http://localhost:$(env_get WEB_PORT || true)"
 }
 
 # Set KEY=VALUE in .env, replacing an existing line or adding one.
@@ -217,6 +220,8 @@ usage() {
 Usage: ./ctl.sh <command>
 
   start              Start Docker and the whole stack
+  init               Create .env with generated secrets, without starting
+  set KEY=VALUE ...  Change settings in .env (take effect at the next start)
   update             Pull the latest code from git, rebuild and restart
   https <domain> <email>
                      Serve the console over HTTPS with a Let's Encrypt certificate
@@ -260,6 +265,21 @@ case "$cmd" in
 		echo "Console:      $(app_url)"
 		echo "Admin login:  $(env_get BOOTSTRAP_ADMIN_EMAIL)  (password is BOOTSTRAP_ADMIN_PASSWORD in .env)"
 		echo "Mail catcher: http://localhost:$(env_get MAILPIT_PORT)  (dev inbox for alert email)"
+		;;
+	init)
+		# Create .env with generated secrets (or add settings a newer release needs), without starting anything.
+		env_init
+		env_upgrade
+		;;
+	set)
+		# ./ctl.sh set KEY=VALUE [KEY=VALUE ...]: change settings in .env. Takes effect at the next start.
+		env_init
+		[ $# -gt 0 ] || { echo "Usage: ./ctl.sh set KEY=VALUE [KEY=VALUE ...]" >&2; exit 1; }
+		for pair in "$@"; do
+			key="${pair%%=*}"
+			echo "$key" | grep -Eq '^[A-Z][A-Z0-9_]*$' && [ "$key" != "$pair" ] || { echo "Not KEY=VALUE: $pair" >&2; exit 1; }
+			env_set "$key" "${pair#*=}"
+		done
 		;;
 	update)
 		# The working tree must be clean: an update never discards your changes.
@@ -379,8 +399,15 @@ UNIT
 		profiles="$(env_get COMPOSE_PROFILES || true)"
 		case "${1:-}" in
 			on)
-				case ",$profiles," in *,https,*) ;; *) echo "Turn HTTPS on first: ./ctl.sh https <domain> <email>. The shell is never served over plain HTTP." >&2; exit 1 ;; esac
-				case ",$profiles," in *,shell,*) ;; *) env_set COMPOSE_PROFILES "$profiles,shell" ;; esac
+				proxy="$(env_get KIVULI_PROXY || true)"
+				if [ "$proxy" = "nginx" ]; then
+					# Behind the server's own nginx (install.sh wrote its /shell gate): publish the shell on 127.0.0.1 for it.
+					case ":$(env_get COMPOSE_FILE || true):" in *:docker-compose.shell-local.yml:*) ;; *)
+						env_set COMPOSE_FILE "$(env_get COMPOSE_FILE | sed 's/^$/docker-compose.yml/'):docker-compose.shell-local.yml" ;; esac
+				else
+					case ",$profiles," in *,https,*) ;; *) echo "Turn HTTPS on first: ./ctl.sh https <domain> <email> (or install behind nginx with install.sh). The shell is never served over plain HTTP." >&2; exit 1 ;; esac
+				fi
+				case ",$profiles," in *,shell,*) ;; *) env_set COMPOSE_PROFILES "$(echo "$profiles,shell" | sed 's/^,//')" ;; esac
 				env_set SHELL_ENABLED true
 				daemon_start
 				docker compose up -d --no-build
@@ -389,6 +416,7 @@ UNIT
 				;;
 			off)
 				env_set COMPOSE_PROFILES "$(echo ",$profiles," | sed 's/,shell,/,/; s/^,//; s/,$//')"
+				env_set COMPOSE_FILE "$(env_get COMPOSE_FILE | sed 's/:docker-compose.shell-local.yml//')"
 				env_set SHELL_ENABLED false
 				daemon_start
 				docker compose rm -sf shell >/dev/null 2>&1 || true
@@ -423,10 +451,12 @@ print('  exits through Tor' if s.get('is_tor') else '  ! not confirmed yet: ' + 
 		df -h "$ROOT" | awk 'NR == 2 { print "  " $4 " free of " $2 " (" $5 " used)" }'
 		used="$(df -P "$ROOT" | awk 'NR == 2 { gsub("%", "", $5); print $5 }')"
 		[ "${used:-0}" -lt 90 ] || { echo "  ! the disk is over 90% full"; ok=1; }
-		if [ "$(env_get COMPOSE_PROFILES)" = "https" ]; then
+		url="$(env_get PUBLIC_URL || true)"
+		if [ "${url#https://}" != "$url" ]; then
+			# Whatever fronts it (Kivuli's Caddy, or the server's own nginx or Apache), the public address must answer.
 			echo "HTTPS:"
-			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$(env_get KIVULI_DOMAIN)/login" || true)"
-			if [ "$code" = "200" ]; then echo "  https://$(env_get KIVULI_DOMAIN) answers"; else echo "  ! https://$(env_get KIVULI_DOMAIN) answered '$code' (DNS, ports 80/443, or the certificate is still being issued)"; ok=1; fi
+			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url/login" || true)"
+			if [ "$code" = "200" ]; then echo "  $url answers"; else echo "  ! $url answered '$code' (DNS, ports 80/443, the web server's site for it, or the certificate is still being issued)"; ok=1; fi
 		fi
 		[ "$ok" = 0 ] && echo "All checks passed." || { echo "Some checks failed; see above. Logs: ./ctl.sh logs <service>"; exit 1; }
 		;;

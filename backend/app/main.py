@@ -18,6 +18,10 @@ _redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
 app = FastAPI(title=f"{settings.app_name} API", version="1.1.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 
 
+class _Skip(Exception):
+    """Leave the rate limiter for this request."""
+
+
 @app.middleware("http")
 async def guard(request: Request, call_next):
     path = request.url.path
@@ -27,12 +31,18 @@ async def guard(request: Request, call_next):
         if request.method not in ("GET", "HEAD", "OPTIONS") and CSRF_HEADER not in request.headers and "authorization" not in request.headers:
             return JSONResponse({"detail": "Missing CSRF header"}, status_code=403)
         try:
+            # The server shell's gate is asked on every terminal request; it carries no credentials to guess,
+            # and counting it would let heavy console use cut the terminal off.
+            if path == "/api/shell/authorize":
+                raise _Skip
             key = f"kivuli:rl:{client_ip(request)}:{int(time.time() // 60)}"
             hits = _redis.incr(key)
             if hits == 1:
                 _redis.expire(key, 90)
             if hits > settings.rate_limit_per_minute:
                 return JSONResponse({"detail": "Rate limit exceeded. Slow down and retry in a minute."}, status_code=429, headers={"Retry-After": "60"})
+        except _Skip:
+            pass
         except redis.RedisError:
             log.warning("rate limiter unavailable")
     response = await call_next(request)

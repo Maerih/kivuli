@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Kivuli"
     role: str = "api"  # api | pipeline | notify | crawler | enricher | beat | egress
-    public_url: str = "http://localhost:3000"
+    public_url: str = "http://localhost:28941"
 
     # Data plane (api, pipeline, notify)
     database_url: str = ""
@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     # Email alerts (notify)
     email_enabled: bool = True
     smtp_host: str = "mailpit"
+    mailpit_port: int = 28942  # where the bundled test inbox is published on 127.0.0.1
     smtp_port: int = 1025
     smtp_username: str = ""
     smtp_password: str = ""

@@ -17,7 +17,7 @@ interface Health {
   tor: { ok: boolean; is_tor?: boolean; exit_ip?: string; latency_ms?: number; error?: string; checked_at?: string };
   email_backoff?: boolean;
   crawl: { last_fetch: string | null; fetches_24h: number; ok_24h: number; new_findings_24h: number };
-  email: { enabled: boolean; smtp_host: string; smtp_port: number; tls: string; from: string; default_recipients: string[]; authenticated: boolean };
+  email: { enabled: boolean; smtp_host: string; smtp_port: number; test_inbox_port?: number; tls: string; from: string; default_recipients: string[]; authenticated: boolean };
   policy: { redact_secrets: boolean; store_raw_evidence: boolean; egress_allow_hosts: string[]; discover_onion_links: boolean; max_bytes: number; host_delay_seconds: number };
 }
 interface EmailRow { id: number; ts: string; kind: string; recipients: string[]; subject: string; alert_count: number; ok: boolean; error: string }
@@ -103,7 +103,7 @@ function EmailTab() {
         </Card>
         {local && (
           <div className="rounded-md border border-line bg-warning-soft px-3 py-2.5 text-sm">
-            Mail is going to the bundled test inbox, not to real mailboxes. Open it at <a className="link" href="http://localhost:8025" target="_blank" rel="noopener">localhost:8025</a>. To deliver for real, set SMTP_HOST, SMTP_PORT, SMTP_TLS, SMTP_USERNAME and SMTP_PASSWORD in <span className="font-mono">.env</span> and restart.
+            Mail is going to the bundled test inbox, not to real mailboxes. Open it at <a className="link" href={`http://localhost:${h.email.test_inbox_port ?? 28942}`} target="_blank" rel="noopener">localhost:{h.email.test_inbox_port ?? 28942}</a> on the server (through an SSH tunnel from elsewhere). To deliver for real, set SMTP_HOST, SMTP_PORT, SMTP_TLS, SMTP_USERNAME and SMTP_PASSWORD in <span className="font-mono">.env</span> and restart.
           </div>
         )}
         {isAdmin && (

@@ -44,15 +44,15 @@ cd ~/kivuli && ./ctl.sh start
 
 ## Reaching the console
 
-The console listens on `127.0.0.1:3000` only, on purpose. Two ways to reach it:
+The console listens on `127.0.0.1:28941` only, on purpose. Two ways to reach it:
 
-- **SSH tunnel (simplest, nothing exposed):** run this on your own machine, then open http://localhost:3000.
+- **SSH tunnel (simplest, nothing exposed):** run this on your own machine, then open http://localhost:28941.
 
 ```bash
-ssh -L 3000:127.0.0.1:3000 user@your-server
+ssh -L 28941:127.0.0.1:28941 user@your-server
 ```
 
-- **Reverse proxy with TLS (for the team):** put nginx or Caddy on the server, proxy `https://kivuli.yourdomain` to `127.0.0.1:3000`, and set these in `.env` before `./ctl.sh restart`:
+- **Reverse proxy with TLS (for the team):** put nginx or Caddy on the server, proxy `https://kivuli.yourdomain` to `127.0.0.1:28941`, and set these in `.env` before `./ctl.sh restart`:
 
 ```ini
 PUBLIC_URL=https://kivuli.yourdomain
@@ -77,7 +77,7 @@ Run this from the project folder:
 cd /home/kali/Projects/theHPA/kivuli && ./ctl.sh start
 ```
 
-Then open http://localhost:3000 and sign in:
+Then open http://localhost:28941 and sign in:
 
 - **Email:** `admin@kivuli.local`
 - **Password:** the value of `BOOTSTRAP_ADMIN_PASSWORD` in the `.env` file in that folder
@@ -101,6 +101,6 @@ Things to know:
 
 - **After a reboot it does not start by itself.** Run `./ctl.sh start` again.
 - **Starting takes a minute or two** when the images are already built, as they are on this machine. Tor needs about another minute before the command centre shows "Tor connection: Online".
-- **Alert email goes to a test inbox** at http://localhost:8025 until you configure a real mail relay.
+- **Alert email goes to a test inbox** at http://localhost:28942 until you configure a real mail relay.
 
 If `./ctl.sh start` prints an error, paste it here and I'll sort it out.

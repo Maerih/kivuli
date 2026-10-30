@@ -1,0 +1,10 @@
+# The server shell behind the server's own nginx instead of Kivuli's Caddy.
+#
+# install.sh adds this when nginx already serves ports 80 and 443. The shell is
+# published on 127.0.0.1 only, for that nginx, whose /shell location asks
+# Kivuli's /api/shell/authorize before every request (auth_request), exactly as
+# Caddy's forward_auth does. Enabled through COMPOSE_FILE by ./ctl.sh shell on.
+services:
+  shell:
+    ports:
+      - "127.0.0.1:${SHELL_PORT:-28943}:3000"

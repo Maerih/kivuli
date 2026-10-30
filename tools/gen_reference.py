@@ -300,8 +300,8 @@ w("Read only by docker-compose and `ctl.sh`, not by the application:\n")
 w("| Variable | Default | What it controls |")
 w("|---|---|---|")
 for env, default, text in (("POSTGRES_PASSWORD", "*generated*", "Database password."), ("REDIS_PASSWORD", "*generated*", "Queue password."),
-                           ("WEB_PORT", "`3000`", "Port the console is published on, on 127.0.0.1 only."),
-                           ("MAILPIT_PORT", "`8025`", "Port of the bundled test inbox, on 127.0.0.1 only."),
+                           ("WEB_PORT", "`28941`", "Port the console is published on, on 127.0.0.1 only."),
+                           ("MAILPIT_PORT", "`28942`", "Port of the bundled test inbox, on 127.0.0.1 only."),
                            ("SEARCH_HEAP", "`768m`", "Memory given to the search node."), ("CRAWLER_CONCURRENCY", "`6`", "Simultaneous fetches."),
                            ("PIPELINE_CONCURRENCY", "`4`", "Simultaneous pages being processed.")):
     w(f"| `{env}` | {default} | {text} |")

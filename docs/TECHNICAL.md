@@ -96,7 +96,7 @@ another role's tasks even if asked to.
 
 | Container | Role | Networks | Holds |
 |---|---|---|---|
-| `web` | Console and reverse proxy to the API. Publishes `127.0.0.1:3000` | app, public | nothing |
+| `web` | Console and reverse proxy to the API. Publishes `127.0.0.1:28941` | app, public | nothing |
 | `api` | HTTP API. Runs migrations and seeding on start | app, data, queue | database and index credentials, session key, both encryption keys |
 | `pipeline` | Parses, redacts, extracts, scores, matches, indexes | data, queue | database and index credentials, evidence key |
 | `crawler` | Fetches pages | crawl, crawlq | nothing but the queue password |
@@ -109,7 +109,7 @@ another role's tasks even if asked to.
 | `postgres` | Database | data | data |
 | `search` | OpenSearch | data | index |
 | `redis` | Queues | queue, crawlq | queue |
-| `mailpit` | Test inbox. Publishes `127.0.0.1:8025` | mail, public | test mail |
+| `mailpit` | Test inbox. Publishes `127.0.0.1:28942` | mail, public | test mail |
 
 Every backend container runs as an unprivileged user on a read-only root
 filesystem with all capabilities dropped and `no-new-privileges`. The crawler

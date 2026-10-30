@@ -50,7 +50,7 @@ Things shown in the console follow three rules you will notice everywhere:
 
 ## 2. Signing in and roles
 
-Open the console (by default http://localhost:3000) and sign in with your email
+Open the console (by default http://localhost:28941) and sign in with your email
 and password. If two-step sign-in is on for your account you are then asked for
 the six-digit code from your authenticator app, or a recovery code.
 

@@ -51,7 +51,7 @@ x-env-data: &env-data
   <<: *env-queue
   DATABASE_URL: postgresql+psycopg://kivuli:${POSTGRES_PASSWORD}@postgres:5432/kivuli
   OPENSEARCH_URL: http://search:9200
-  PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+  PUBLIC_URL: ${PUBLIC_URL:-http://localhost:28941}
   EVIDENCE_HMAC_KEY: ${EVIDENCE_HMAC_KEY}
   REDACT_SECRETS: ${REDACT_SECRETS:-true}
   EVIDENCE_STORE_RAW: ${EVIDENCE_STORE_RAW:-false}
@@ -269,6 +269,7 @@ services:
       REQUIRE_MFA: ${REQUIRE_MFA:-false}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SHELL_ENABLED: ${SHELL_ENABLED:-false}
+      MAILPIT_PORT: ${MAILPIT_PORT:-28942}
       # IntelOwl's address (not its key), so Integrations can tell whether it is set up and allow-listed.
       INTELOWL_URL: ${INTELOWL_URL:-}
       INTELOWL_DIRECT: ${INTELOWL_DIRECT:-false}
@@ -295,7 +296,7 @@ services:
       API_URL: http://api:8000
       APP_NAME: ${APP_NAME:-Kivuli}
     ports:
-      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-28941}:3000"
     networks: [app, public]
     depends_on:
       api: {condition: service_healthy}
@@ -359,7 +360,7 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
     ports:
-      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_PORT:-28942}:8025"
     networks: [mail, public]
 
 networks:

@@ -23,9 +23,9 @@ actually using. What changed, what was tested and what was not is in
 ```
 
 The first start builds four images and takes a while on a slow connection.
-It prints the console address (http://localhost:3000) and where to find the
+It prints the console address (http://localhost:28941) and where to find the
 generated admin password. Alert email goes to a bundled test inbox at
-http://localhost:8025 until you configure a real relay.
+http://localhost:28942 until you configure a real relay.
 
 Everything runs in rootless Docker kept inside this folder (`.runtime/`). Nothing
 is installed system-wide and no sudo is needed; `./ctl.sh destroy` plus deleting
@@ -264,7 +264,7 @@ STIX. A key acts as the user who made it, read-only unless you choose otherwise,
 and is shown once.
 
 ```bash
-curl -H "Authorization: Bearer $KIVULI_KEY" "http://localhost:3000/api/search?q=type:ransomware+country:KE"
+curl -H "Authorization: Bearer $KIVULI_KEY" "http://localhost:28941/api/search?q=type:ransomware+country:KE"
 ```
 
 TAXII discovery is at `/api/taxii2/` with three collections (indicators,
@@ -427,6 +427,33 @@ offline. The Tor image installs one Alpine package and may still take a while
 the first time; later starts reuse the cached layers.
 
 ## Running it on a VPS
+
+**The easy way: `install.sh`.** It looks at the server first and works around
+what is already there, so other websites keep running untouched:
+
+```
+git clone https://github.com/Maerih/kivuli.git /opt/kivuli && cd /opt/kivuli
+sudo ./install.sh --check --domain kivuli.example.org                       # look only, change nothing
+sudo ./install.sh --domain kivuli.example.org --email you@example.org       # install
+```
+
+It checks RAM, disk, Docker, the firewall and that the domain's DNS points at
+this server, then picks how to serve Kivuli:
+
+| On ports 80/443 | What install.sh does |
+|---|---|
+| nothing | Kivuli's own HTTPS (Caddy, Let's Encrypt) |
+| nginx | adds one site file for Kivuli's domain, gets its certificate with certbot; other sites untouched (the server shell works here too) |
+| Apache | adds one site file for Kivuli's domain, gets its certificate with certbot; other sites untouched |
+| anything else (Traefik, Caddy, a Docker container) | leaves it alone and prints what to add to it |
+
+Kivuli itself opens nothing to the outside: the console listens on
+`127.0.0.1:28941` (the test inbox on 28942, the server shell on 28943, or the
+next free ports), uncommon on purpose so they do not collide with other
+applications. It refuses to touch a site for the same domain that it did not
+write, and installs start-at-boot and daily backups unless `--no-autostart`.
+
+**By hand**, the same steps:
 
 ```
 git clone git@github.com:Maerih/kivuli.git && cd kivuli

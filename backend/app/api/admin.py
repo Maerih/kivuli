@@ -209,6 +209,7 @@ def system_health(db: Session = Depends(get_db), user: User = Depends(analyst)):
     health["crawl"] = {"last_fetch": iso(last_fetch), "fetches_24h": fetches[0], "ok_24h": fetches[1], "new_findings_24h": int(fetches[2])}
     health["email"] = {
         "enabled": settings.email_enabled, "smtp_host": settings.smtp_host, "smtp_port": settings.smtp_port, "tls": settings.smtp_tls,
+        "test_inbox_port": settings.mailpit_port,
         "from": settings.smtp_from, "default_recipients": settings.default_recipients,
         "authenticated": bool(settings.smtp_username),
     }
