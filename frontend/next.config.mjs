@@ -28,6 +28,8 @@ const securityHeaders = [
 const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // The console shows no remote images, so Next's image optimiser is switched off.
+  images: { unoptimized: true },
   reactStrictMode: true,
   // TAXII URLs end in a slash by specification: pass them through instead of redirecting.
   skipTrailingSlashRedirect: true,
