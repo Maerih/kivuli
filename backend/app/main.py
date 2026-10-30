@@ -6,7 +6,7 @@ import redis
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api import admin, ai, attack, auth, cases, chain, exposure, findings, integrations, intel, reports, research, rules, search, sources, taxii, watch
+from app.api import admin, ai, attack, auth, cases, chain, exposure, findings, integrations, intel, reports, research, rules, search, sources, taxii, tools, watch
 from app.config import get_settings
 from app.security import CSRF_HEADER, client_ip
 
@@ -47,5 +47,5 @@ def healthz():
     return {"ok": True}
 
 
-for module in (auth, search, findings, intel, watch, research, sources, cases, admin, exposure, attack, chain, rules, integrations, taxii, ai, reports):
+for module in (auth, search, findings, intel, watch, research, sources, cases, admin, exposure, attack, chain, rules, integrations, taxii, ai, reports, tools):
     app.include_router(module.router, prefix="/api")

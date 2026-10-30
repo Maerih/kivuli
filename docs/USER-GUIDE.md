@@ -531,6 +531,35 @@ reads only public blockchain data; nothing is signed or sent. Monero and some
 other chains are recognised but cannot be looked up on-chain; they can still be
 traced where they appear in collected intelligence.
 
+**Tools.** Three tools under *Intelligence → Tools*:
+
+- *Quick verdict.* Paste any indicator (defanged is fine) to see everything
+  known about it in one place: findings that mention it, threat feeds that list
+  it, watchlists that cover it, and what the enrichment providers say. The
+  verdict is *Malicious* (on a feed, or a provider says so), *Suspicious* (a
+  provider is unsure), *Seen in intelligence* (mentioned in findings, which on
+  its own proves nothing: victims and vendors are mentioned too), *No sign of
+  harm*, *Benign* (an analyst marked it so) or *Unknown*. Every verdict lists
+  its reasons. The indicator itself is never contacted.
+- *Email headers.* Paste an email's headers ("Show original" in Gmail, "View
+  message source" in Outlook). You get the delivery path oldest hop first, the
+  first public IP it came from, the SPF, DKIM and DMARC results the receiving
+  server recorded, and warnings for the usual signs of phishing and spoofing:
+  replies going to another domain, a display name showing a different address,
+  bounces going elsewhere, a signature from an unrelated domain. Offline: nothing
+  in the message is looked up.
+- *Payload decoder.* Paste a script, a command line or an encoded blob. It
+  removes layers of encoding one after another (PowerShell `-enc`, base64, hex,
+  URL encoding, gzip and deflate, `fromCharCode` and `[char]` arrays, escapes,
+  reversed text, ROT13, base64 hidden inside a script) and shows each layer, the
+  final text, what the text does (downloads, runs code, persists, evades
+  defences, injects, touches credentials) and the indicators in it. Nothing is
+  run.
+
+Indicators found by any tool are marked when your collected intelligence
+already knows them, with a link to the indicator. Pasted text is not stored;
+the audit log records only that a tool was used.
+
 ## 12. Exposure
 
 **Identity exposure.** Accounts, sessions and secrets found in leaks and

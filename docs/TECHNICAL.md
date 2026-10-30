@@ -467,6 +467,33 @@ Portuguese, Italian, Dutch, Turkish, Swahili, Indonesian, Polish). Short or
 mixed text returns nothing. It cannot tell Belarusian from Russian or Catalan
 from Spanish.
 
+### 6.7 Investigation tools (`app/tools/`, `app/api/tools.py`)
+
+Analyst-pasted text, processed in the API container with no network access
+used. Inputs are capped (256 KB of headers, 512 KB of payload) and the
+content is never stored; the audit log records the tool and the input size.
+
+- **`headers.analyse`** parses the header block with the standard library
+  parser (`headersonly`), reverses the `Received` chain into delivery order,
+  takes the first globally routable address as the origin, reads SPF, DKIM and
+  DMARC from `Authentication-Results` (then `ARC-Authentication-Results`, then
+  `Received-SPF`), and compares registered domains of From, Return-Path,
+  Reply-To, Sender, DKIM `d=` and Message-ID.
+- **`decoder.decode`** applies at most 12 steps; each step is the first of
+  an ordered list of transformations that yields readable text (UTF-16LE or
+  UTF-8, or Latin-1 only when it is mostly ASCII). Decompression uses
+  `zlib.decompressobj` with a 2 MB output cap, so a compression bomb stops at
+  the cap. Hex is only accepted when it contains the digits 2-7, the high
+  nibble of printable ASCII. A layer equal to an earlier one ends the loop.
+  Behaviours are regular expressions over every layer.
+- **Verdict** (`GET /tools/verdict`) reads the `iocs`, `document_iocs`,
+  `watchlists`, `enrichments` and `chain_addresses` rows for the detected type
+  and value; `POST /tools/verdict` queues `enrich.subject` for IPs, domains,
+  URLs and hashes. Precedence: benign mark, then feeds or a malicious provider
+  answer, then a suspicious answer, then appearances in findings (*seen*), then
+  clean answers. Which providers are switched on comes from the status the
+  enricher publishes, since only it holds the keys.
+
 ## 7. Scoring
 
 ### 7.1 Finding risk (`app/extract/risk.py`)

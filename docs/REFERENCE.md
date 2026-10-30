@@ -217,6 +217,15 @@ All paths are under `/api`. A request is authenticated by the session cookie (co
 | GET | `/taxii2/root/collections/{collection_id}/manifest/` | viewer | Identifiers and dates of the objects in a collection. |
 | GET | `/taxii2/root/collections/{collection_id}/objects/` | viewer | STIX 2.1 objects in a collection, paged; `added_after`, `limit` and `next` as in the TAXII specification. |
 
+### tools
+
+| Method | Path | Role | What it does |
+|---|---|---|---|
+| POST | `/tools/decode` | analyst | Undo obfuscation layer by layer and report what the decoded text does. Nothing is run. |
+| POST | `/tools/headers` | analyst | Where an email came from and whether it is who it claims to be. Offline. |
+| GET | `/tools/verdict` | viewer | Everything known about one indicator: collected intelligence, watchlists and provider answers. |
+| POST | `/tools/verdict` | analyst | Ask the providers about an indicator now. Poll GET /tools/verdict for the answers as they arrive. |
+
 ### watch
 
 | Method | Path | Role | What it does |
@@ -239,7 +248,7 @@ Every TAXII path also answers without its trailing slash, because reverse proxie
 | GET | `/healthz` | public | Liveness probe for the container. |
 | GET | `/metrics` | analyst | Prometheus exposition. Scrape with an API key: Authorization: Bearer <key>. |
 
-135 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
+139 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
 
 ## Data model
 

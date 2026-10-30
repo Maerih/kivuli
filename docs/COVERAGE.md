@@ -205,6 +205,9 @@ limits. **Not built** is absent.
 | Multi-hop path finding between two entities | Not built | |
 | Actor and campaign clustering | Not built | |
 | Crypto wallet tracing (BTC, ETH, TRON/USDT): balance, flow graph, hop expansion | Built | Public blockchain explorers, keyless; read-only |
+| Quick verdict on any indicator: collected intelligence, feeds, watchlists, providers | Built | The indicator is never contacted |
+| Email header analysis: delivery path, origin IP, SPF/DKIM/DMARC, spoofing signs | Built | Offline; pasted text is not stored |
+| Payload decoding: PowerShell -enc, base64, hex, URL, gzip/deflate, char codes, escapes, ROT13 | Built | Offline; nothing is executed; output capped per layer |
 | Wallet labelling: sanctioned/OFAC, mixers, exchanges, in-intelligence, shape heuristics | Built | Small verified built-in list plus heuristics and our own findings |
 | Bitcoin common-input clustering | Built | |
 | Monero, Solana, Litecoin, Zcash lookup | Partial | Recognised and traceable in collected intelligence; no on-chain lookup |
@@ -333,6 +336,7 @@ against the real thing.
 | AI analyst | Live (rejection), Unproven (answers) | Anthropic rejected an invalid key. No model answer has ever been seen |
 | KEV sync, EPSS, NVD severity | Live | |
 | Passive attack-surface discovery | Live | On `example.com` |
+| Tools: quick verdict, email headers, payload decoder | Live | Feed-listed C2 IP judged malicious; headers flagged Reply-To, display-name spoof, SPF/DMARC fail; PowerShell -enc decoded with indicators cross-referenced |
 | Crypto tracer: BTC, ETH, TRON lookup; flow graph; OFAC/mixer labels; hop expand; pin to investigation | Live | Real addresses through the egress proxy (BTC 348 txs; Tornado Cash labelled sanctioned; USDT TRC20) |
 | Crypto tracer console page | Unproven (visual) | Type-checked and built; API fully proven; the page was not rendered signed-in |
 | API keys, scopes, revocation | Live | |
