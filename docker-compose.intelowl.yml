@@ -1,0 +1,21 @@
+# Join Kivuli's enricher to an IntelOwl running on the same machine.
+#
+# IntelOwl is a separate project with its own Docker deployment
+# (github.com/intelowlproject/IntelOwl). When it runs beside Kivuli, the
+# enricher reaches it over IntelOwl's Docker network instead of the egress
+# proxy, which refuses private addresses by design. Only the enricher joins;
+# nothing else in Kivuli can see IntelOwl.
+#
+# Enable it in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.intelowl.yml
+#   INTELOWL_NETWORK=<the network IntelOwl's nginx is on, e.g. intel_owl_default>
+#   INTELOWL_URL=http://<IntelOwl's nginx service name>:80
+#   INTELOWL_DIRECT=true
+services:
+  enricher:
+    networks: [crawl, crawlq, intelowl]
+
+networks:
+  intelowl:
+    external: true
+    name: ${INTELOWL_NETWORK:-intel_owl_default}

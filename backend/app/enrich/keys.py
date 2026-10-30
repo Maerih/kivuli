@@ -21,7 +21,7 @@ KEYS_HASH = "kivuli:provider:keys"  # provider name -> ciphertext
 CONFIG_HASH = "kivuli:provider:config"  # provider name -> JSON of non-secret settings
 # Providers that take a key, and the Settings attribute that holds the `.env` value.
 ENV_SETTING = {"virustotal": "virustotal_api_key", "shodan": "shodan_api_key", "abuseipdb": "abuseipdb_api_key", "greynoise": "greynoise_api_key",
-               "nvd": "nvd_api_key", "anthropic": "anthropic_api_key", "dwi": "dwi_api_key"}
+               "nvd": "nvd_api_key", "anthropic": "anthropic_api_key", "dwi": "dwi_api_key", "intelowl": "intelowl_api_key"}
 _TTL = 20.0  # seconds a loaded copy is reused; a connection test always reloads
 
 _cache: dict = {"at": 0.0, "keys": {}, "config": {}, "unreadable": set()}

@@ -91,6 +91,13 @@ class Settings(BaseSettings):
     nvd_api_key: str = ""
     dwi_api_key: str = ""
     dwi_base_url: str = "https://api.darkwebinformer.com"
+    # IntelOwl: the operator's own instance. Off until a URL and key are set.
+    intelowl_url: str = ""
+    intelowl_api_key: str = ""
+    intelowl_direct: bool = False  # same machine, over IntelOwl's Docker network (docker-compose.intelowl.yml)
+    intelowl_playbook: str = "FREE_TO_USE_ANALYZERS"
+    intelowl_analyzers: str = ""  # comma-separated; when set, used instead of the playbook
+    intelowl_tlp: str = "AMBER"
     anthropic_api_key: str = ""
     ai_model: str = "claude-opus-5-5"
     asm_max_hosts: int = 300

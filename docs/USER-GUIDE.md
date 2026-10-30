@@ -633,6 +633,13 @@ brief* opens a printable summary.
   finding with its actor, victim, country and indicators, and the IOC feed's
   indicators are marked as listed by a threat feed. It stays within Dark Web
   Informer's limits (two exports a minute, 150 requests a day).
+  *IntelOwl* connects your own IntelOwl instance: set `INTELOWL_URL` in
+  `.env` and its API token (here or as `INTELOWL_API_KEY`). Indicator lookups
+  then also run IntelOwl's playbook (`FREE_TO_USE_ANALYZERS` by default, at
+  TLP AMBER) and show which of its analyzers judged the indicator malicious,
+  suspicious or clean, with a link to the full job in IntelOwl. Analyzers that
+  scan or probe the target (Nmap, Nuclei and the like) are never requested.
+  If IntelOwl runs on the same machine, see `docker-compose.intelowl.yml`.
   When a provider rejects its key, Kivuli stops using that key and says so on
   the provider (*Not in use*) and once on lookups, instead of failing on every
   lookup; the free providers keep answering. Saving a different key, or a

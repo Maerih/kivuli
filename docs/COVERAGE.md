@@ -259,6 +259,7 @@ limits. **Not built** is absent.
 | REST API with keys | Built | 130 operations |
 | TAXII 2.1 server, STIX import and export | Built | |
 | Enrichment providers, keys set and tested in the console | Built | |
+| IntelOwl (your own instance): playbook analysis of IPs, domains, URLs, hashes | Built | Lookup analyzers only; scanners refused; HTTPS via the egress proxy or its Docker network on the same host |
 | AI analyst with citations | Built, unproven | No key has been available; see section 7 |
 | Roles, two-step sign-in, audit log | Built | |
 | Collection health screen, Prometheus metrics | Built | |

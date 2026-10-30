@@ -17,15 +17,21 @@ class EnrichError(Exception):
 
 
 def api_request(url: str, *, headers: dict | None = None, params: dict | None = None, timeout: float = 45.0,
-                max_bytes: int = 8_000_000) -> tuple[int, Any]:
-    """GET a JSON API. Returns (status, parsed body); body is None when it is not JSON."""
+                max_bytes: int = 8_000_000, method: str = "GET", json_body: Any = None, direct: bool = False) -> tuple[int, Any]:
+    """Call a JSON API. Returns (status, parsed body); body is None when it is not JSON.
+
+    ``direct`` skips the egress proxy. It exists for one case only: the
+    operator's own IntelOwl running on the same host, reached over its Docker
+    network (the proxy refuses private addresses by design). Every third-party
+    service still goes through the proxy, HTTPS only.
+    """
     settings = get_settings()
-    if not url.lower().startswith("https://"):
+    if not direct and not url.lower().startswith("https://"):
         raise EnrichError("enrichment requests are HTTPS only")
     try:
-        with httpx.Client(proxy=settings.egress_proxy_url, follow_redirects=False, timeout=httpx.Timeout(timeout, connect=20), trust_env=False,
+        with httpx.Client(proxy=None if direct else settings.egress_proxy_url, follow_redirects=False, timeout=httpx.Timeout(timeout, connect=20), trust_env=False,
                           headers={"User-Agent": settings.direct_user_agent, "Accept": "application/json"}) as client:
-            with client.stream("GET", url, headers=headers, params=params) as resp:
+            with client.stream(method, url, headers=headers, params=params, json=json_body) as resp:
                 chunks, size = [], 0
                 for chunk in resp.iter_bytes(65536):
                     size += len(chunk)

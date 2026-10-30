@@ -75,7 +75,7 @@ def _on_ready(**_kwargs):
         log.warning("could not publish provider status")
 
 
-@celery_app.task(name="enrich.subject", soft_time_limit=240, time_limit=300)
+@celery_app.task(name="enrich.subject", soft_time_limit=480, time_limit=540)  # IntelOwl jobs take minutes
 def enrich_subject(subject_type: str, value: str, only: list[str] | None = None):
     """Ask every enabled provider about one indicator."""
     for provider in providers.for_kind(subject_type):

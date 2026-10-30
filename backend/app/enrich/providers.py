@@ -11,7 +11,8 @@ import base64
 from dataclasses import dataclass
 from typing import Callable
 
-from app.enrich import dwi, keys, rejected
+from app.config import get_settings
+from app.enrich import dwi, intelowl, keys, rejected
 from app.enrich.http import EnrichError, api_request
 
 Result = dict
@@ -349,6 +350,7 @@ class Provider:
     probe: Callable[[], dict] | None = None  # connection test
     optional_key: bool = False  # works without a key; a key only raises limits
     signup: str = ""  # where an operator gets a key
+    configured: Callable[[], bool] | None = None  # extra precondition, e.g. an instance URL
 
     @property
     def tier(self) -> str:
@@ -361,7 +363,8 @@ class Provider:
         return bool(self.key_setting)
 
     def enabled(self) -> bool:
-        return self.tier != "planned" and (not self.key_setting or self.optional_key or bool(keys.get(self.name)))
+        return (self.tier != "planned" and (not self.key_setting or self.optional_key or bool(keys.get(self.name)))
+                and (self.configured is None or self.configured()))
 
     def key_rejected(self) -> str:
         """Why this provider's current key is not being used, or "" when it is fine."""
@@ -390,6 +393,11 @@ PROVIDERS: list[Provider] = [
     Provider("dwi", "Dark Web Informer", (), None, "dwi_api_key", (dwi.HOST,),
              "Threat feed alerts, ransomware victims and indicators from Dark Web Informer, imported every six hours",
              dwi.probe, signup="https://darkwebinformer.com/api-details/"),
+    # Last: an IntelOwl job runs many analyzers and takes the longest to answer.
+    Provider("intelowl", "IntelOwl", ("ip", "domain", "url", "hash"), intelowl.lookup, "intelowl_api_key",
+             () if get_settings().intelowl_direct or not intelowl.host() else (intelowl.host(),),
+             "Your own IntelOwl: its playbook's analyzers on an indicator, with a link to the full job (set INTELOWL_URL)",
+             intelowl.probe, signup="https://github.com/intelowlproject/IntelOwl", configured=intelowl.configured),
     Provider("hibp", "Have I Been Pwned", ("email", "domain"), None, about="Breach history for corporate mailboxes (planned)"),
     Provider("urlscan", "urlscan.io", ("url", "domain"), None, about="Page scans and verdicts for URLs (planned)"),
     Provider("securitytrails", "SecurityTrails", ("domain", "ip"), None, about="Passive DNS and WHOIS history (planned)"),
