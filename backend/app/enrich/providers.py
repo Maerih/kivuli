@@ -11,7 +11,7 @@ import base64
 from dataclasses import dataclass
 from typing import Callable
 
-from app.enrich import keys, rejected
+from app.enrich import dwi, keys, rejected
 from app.enrich.http import EnrichError, api_request
 
 Result = dict
@@ -386,6 +386,10 @@ PROVIDERS: list[Provider] = [
              probe_abuseipdb, signup="https://www.abuseipdb.com/account/api"),
     Provider("greynoise", "GreyNoise", ("ip",), greynoise, "greynoise_api_key", ("api.greynoise.io",), "Whether an address is internet background noise or a known benign service",
              probe_greynoise, signup="https://viz.greynoise.io/account/api-key"),
+    # A source of intelligence rather than a lookup: it feeds findings and indicators through its own sources.
+    Provider("dwi", "Dark Web Informer", (), None, "dwi_api_key", (dwi.HOST,),
+             "Threat feed alerts, ransomware victims and indicators from Dark Web Informer, imported every six hours",
+             dwi.probe, signup="https://darkwebinformer.com/api-details/"),
     Provider("hibp", "Have I Been Pwned", ("email", "domain"), None, about="Breach history for corporate mailboxes (planned)"),
     Provider("urlscan", "urlscan.io", ("url", "domain"), None, about="Page scans and verdicts for URLs (planned)"),
     Provider("securitytrails", "SecurityTrails", ("domain", "ip"), None, about="Passive DNS and WHOIS history (planned)"),

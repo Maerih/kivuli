@@ -34,6 +34,12 @@ RUN_TTL = 6 * 3600
 def start_crawl(db, source: Source, probe: bool = False) -> str:
     """Queue the first fetch of a crawl run and return the run id."""
     run_id = str(uuid.uuid4())
+    if source.connector == "dwi":
+        # Read with an API key, which only the enricher holds: the crawler never fetches it.
+        if not probe:
+            source.last_crawled_at = utcnow()
+        enqueue("enrich.dwi_sync", source_id=source.id, kind=(source.config or {}).get("kind", "feed"), run_id=run_id, probe=probe)
+        return run_id
     if not probe:
         source.last_crawled_at = utcnow()
         _redis.sadd(f"kivuli:run:{run_id}:seen", source.url)

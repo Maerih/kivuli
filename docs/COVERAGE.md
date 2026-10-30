@@ -75,6 +75,7 @@ Collected from a fresh install without any action:
 | CISA cybersecurity advisories | Advisories | 6 h |
 | Feodo Tracker, OpenPhish | Indicator feeds | 3-6 h |
 | deepdarkCTI catalogue (ransomware sites, forums, markets) | Source discovery | daily |
+| Dark Web Informer: threat feed, ransomware victims, IOC feed (paid API key; paused until set) | Commercial feed | 6 h |
 | Ahmia: banned onion services | Safety blocklist (hashes) | 24 h |
 
 Onion sources are not built in. They are discovered, starting about ten minutes

@@ -19,7 +19,7 @@ _INCLUDE = {
     "crawler": ["app.worker.crawl_tasks"],
     "pipeline": ["app.worker.pipeline_tasks", "app.worker.intel_tasks"],
     "notify": ["app.worker.notify_tasks"],
-    "enricher": ["app.worker.enrich_tasks", "app.worker.chain_tasks"],
+    "enricher": ["app.worker.enrich_tasks", "app.worker.chain_tasks", "app.worker.feed_tasks"],
 }
 
 celery_app = Celery("kivuli", broker=settings.redis_url, include=_INCLUDE.get(settings.role, []))

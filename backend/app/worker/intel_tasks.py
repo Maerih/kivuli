@@ -16,7 +16,7 @@ from app.extract.lang import detect_language
 from app.db import session_scope
 from app.extract.redact import RE_COMBO
 from app.intel import attack, priority, quality
-from app.models import (Alert, Asset, ChainAddress, ChainEdge, Document, DocumentEntity, DocumentIoc, Enrichment, Entity, Exposure, Ioc, Rule, Vulnerability,
+from app.models import (Alert, Asset, ChainAddress, ChainEdge, Document, DocumentEntity, DocumentIoc, Enrichment, Entity, Exposure, Ioc, Rule, Source, Vulnerability,
                         Watchlist, utcnow)
 from app.search import index as search_index
 from app.search import service as search_service
@@ -447,3 +447,56 @@ def backfill(batch: int = 200) -> dict:
             last = docs[-1].id
             db.commit()
     return stats
+
+
+# ── Dark Web Informer ───────────────────────────────────────────────────────
+
+@celery_app.task(name="pipeline.store_dwi", soft_time_limit=900, time_limit=960)
+def store_dwi(source_id: int, kind: str, alerts: list[dict], iocs: list[list[str]]):
+    """Store Dark Web Informer alerts as findings and its indicators as a feed listing."""
+    from app.enrich import dwi
+    from app.worker.parsers import ParsedItem
+
+    with session_scope() as db:
+        source = db.get(Source, source_id)
+        if source is None:
+            return
+        counts: dict[str, int] = {}
+        for alert in alerts:
+            item = ParsedItem(
+                key=alert["id"], namespace="dwi", url=alert["url"] or f"https://darkwebinformer.com/#{alert['id']}",
+                title=alert["title"] or (alert["victim"] and f"{alert['victim']} listed by {alert['actor'] or 'an actor'}") or "Dark Web Informer alert",
+                text=dwi.alert_text(alert, kind), published_at=dwi.published(alert),
+                hint_type="ransomware" if kind == "ransomware" else None, actor=alert["actor"], victim=alert["victim"],
+                countries=alert["countries"], extra_iocs=[tuple(i) for i in alert["iocs"]], meta={"origin": "dwi", "stix_id": alert["id"], "kind": kind},
+            )
+            outcome = ingest.ingest_item(db, source, item, {"http_status": 200, "headers": {}})
+            counts[outcome] = counts.get(outcome, 0) + 1
+        listed = fresh = 0
+        if iocs:
+            listed, fresh = store_feed(db, source, [(t, v) for t, v in iocs])
+        db.commit()
+    log.info("dwi %s stored: %s; %d indicators listed (%d new)", kind, counts, listed, fresh)
+
+
+@celery_app.task(name="pipeline.dwi_status")
+def dwi_status(source_id: int, run_id: str, ok: bool, error: str, probe: bool, elapsed_ms: int = 0, **counts):
+    """Record a sync like any other fetch: source health and the crawl log, which activity patterns read."""
+    from app.models import CrawlLog
+
+    with session_scope() as db:
+        source = db.get(Source, source_id)
+        if source is None:
+            return
+        now = utcnow()
+        db.add(CrawlLog(run_id=run_id, source_id=source.id, url=source.url[:2048], depth=0, probe=probe, fetched_at=now, ok=ok,
+                        http_status=200 if ok else None, bytes=0, elapsed_ms=elapsed_ms, error=error[:1000],
+                        new_docs=int(counts.get("alerts", 0))))
+        source.last_checked_at = now
+        if ok:
+            source.is_live, source.last_live_at, source.last_http_status = True, now, 200
+            source.consecutive_failures, source.last_error = 0, ""
+        else:
+            source.consecutive_failures += 1
+            source.last_error = error[:1000]
+        db.commit()

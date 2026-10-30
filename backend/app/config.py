@@ -89,6 +89,8 @@ class Settings(BaseSettings):
     abuseipdb_api_key: str = ""
     greynoise_api_key: str = ""
     nvd_api_key: str = ""
+    dwi_api_key: str = ""
+    dwi_base_url: str = "https://api.darkwebinformer.com"
     anthropic_api_key: str = ""
     ai_model: str = "claude-opus-5-5"
     asm_max_hosts: int = 300

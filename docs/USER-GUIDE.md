@@ -626,6 +626,13 @@ brief* opens a printable summary.
 - *Enrichment and AI*: every provider with whether it is on, where its key comes
   from, and its last test. **Set key** saves a key and immediately makes a real
   request to the provider to confirm it. **Test** repeats that at any time.
+  *Dark Web Informer* is a paid feed rather than a lookup: set its key here
+  (or `DWI_API_KEY` in `.env`), press **Test**, then open its three sources
+  (threat feed, ransomware victims, IOC feed) and press **Monitor**. Every six
+  hours Kivuli imports what changed: each alert or victim claim becomes a
+  finding with its actor, victim, country and indicators, and the IOC feed's
+  indicators are marked as listed by a threat feed. It stays within Dark Web
+  Informer's limits (two exports a minute, 150 requests a day).
   When a provider rejects its key, Kivuli stops using that key and says so on
   the provider (*Not in use*) and once on lookups, instead of failing on every
   lookup; the free providers keep answering. Saving a different key, or a

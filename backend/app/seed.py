@@ -49,6 +49,10 @@ ADDED_SOURCES = [
      "deepdark_catalog", "other", 70, 1440, {"list": "forum", "max_bytes": 4_000_000}, "approved"),
     ("deepdarkCTI: markets", "https://raw.githubusercontent.com/fastfire/deepdarkCTI/main/markets.md",
      "deepdark_catalog", "other", 70, 1440, {"list": "markets", "max_bytes": 4_000_000}, "approved"),
+    # Dark Web Informer (paid API). Paused until a key is set; read by the enricher, never the crawler.
+    *[(f"Dark Web Informer: {label}", f"https://api.darkwebinformer.com/api/stix/export_{kind}.json", "dwi", "tracker", 80, 360,
+       {"kind": kind, "tag": tag}, "paused") for kind, label, tag in (
+        ("feed", "threat feed", "dwi-alert"), ("ransomware", "ransomware victims", "ransomware"), ("iocs", "IOC feed", "dwi-ioc"))],
     # Vendor threat-research blogs: where teams such as Unit 42 publish what their telemetry, incident
     # response and malware analysis found. Every feed was checked to answer Kivuli's own user agent directly.
     *[(name, url, "rss", "blog", trust, 360, {"max_bytes": 3_000_000}, "approved") for name, url, trust in (
