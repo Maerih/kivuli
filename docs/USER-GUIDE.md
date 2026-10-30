@@ -258,6 +258,28 @@ research crawl there.
 - **Did you mean** appears when a word finds almost nothing and a near spelling
   does.
 
+### 5.7 Command line
+
+*Research → Command line* is a terminal for the console. Type `help` for the
+list. Tab completes a command, ↑ and ↓ walk your history, Ctrl+L clears.
+
+| Command | What it does |
+|---|---|
+| `search <query>` | Search everything collected; every operator works (`search actor:qilin country:KE last:7d`) |
+| `verdict <indicator>` | Quick verdict on an IP, domain, URL, hash, email, wallet, CVE or handle |
+| `trace <wallet>` | Read a wallet on-chain and open its flow graph |
+| `decode "<payload>"` | Peel encodings off a payload; nothing is run |
+| `actor <name>` | An actor's claims, tempo, sites and month-by-month targeting |
+| `sources [text]` / `source <id> check\|crawl\|monitor\|pause\|js-on\|js-off` | List and act on sources |
+| `crawl <url> [depth] [pages]` | Start a research crawl |
+| `watch <kind> <value> [name]` | Add a watchlist |
+| `alerts`, `timeline [days]`, `stats [days]`, `providers` | What is open, who is active, headline numbers, provider status |
+| `open <page>` | Go to a page (`open trends`) |
+
+Each command calls the same API as the rest of the console with your
+session: it can do what your role can, it is in the audit log like any other
+action, and nothing runs on the server's shell.
+
 ## 6. Source explorer and source profiles
 
 **Source explorer** lists every site the platform knows.

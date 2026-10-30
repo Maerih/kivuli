@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Activity, Bell, Briefcase, Bug, CalendarRange, ChartColumn, Coins, Crosshair, Fingerprint, Grid3x3, KeyRound, LayoutDashboard, LogOut, Menu, Moon, Plug, Radar, Scan, Search, Settings, Share2, ShieldCheck, Siren, Sun, Users, Wrench, X,
+  Activity, Bell, Briefcase, Bug, CalendarRange, ChartColumn, Coins, Crosshair, Fingerprint, Grid3x3, KeyRound, LayoutDashboard, LogOut, Menu, Moon, Plug, Radar, Scan, Search, Settings, Share2, ShieldCheck, Siren, SquareTerminal, Sun, Users, Wrench, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ const NAV = [
   { group: "Research", items: [
     { href: "/", label: "Command centre", icon: LayoutDashboard },
     { href: "/search", label: "Dark-web search", icon: Search },
+    { href: "/terminal", label: "Command line", icon: SquareTerminal },
     { href: "/sources", label: "Source explorer", icon: Radar },
     { href: "/collection", label: "Collection & crawls", icon: Activity },
     { href: "/cases", label: "Investigations", icon: Briefcase },
