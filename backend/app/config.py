@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     session_ttl_minutes: int = 480
     cookie_secure: bool = False  # set true when served over HTTPS
+    # Server shell: a browser SSH terminal to this host (./ctl.sh shell on). Off by default.
+    shell_enabled: bool = False
+    shell_ssh_host: str = "host.docker.internal"
+    shell_ssh_port: int = 22
     rate_limit_per_minute: int = 300
     login_rate_limit_per_minute: int = 10
     bootstrap_admin_email: str = ""

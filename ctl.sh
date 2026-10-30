@@ -221,6 +221,7 @@ Usage: ./ctl.sh <command>
   https <domain> <email>
                      Serve the console over HTTPS with a Let's Encrypt certificate
   https off          Back to the console on 127.0.0.1 only
+  shell on|off       Browser SSH terminal to this server for admins (needs HTTPS)
   doctor             Check the stack: containers, API, Tor, disk, HTTPS
   stop               Stop the stack and the Docker daemon
   restart            Stop, then start
@@ -302,6 +303,30 @@ case "$cmd" in
 		echo
 		echo "Console: https://$domain  (the certificate is issued on the first request; give it a minute)"
 		echo "Check it with: ./ctl.sh doctor"
+		;;
+	shell)
+		env_init
+		profiles="$(env_get COMPOSE_PROFILES || true)"
+		case "${1:-}" in
+			on)
+				case ",$profiles," in *,https,*) ;; *) echo "Turn HTTPS on first: ./ctl.sh https <domain> <email>. The shell is never served over plain HTTP." >&2; exit 1 ;; esac
+				case ",$profiles," in *,shell,*) ;; *) env_set COMPOSE_PROFILES "$profiles,shell" ;; esac
+				env_set SHELL_ENABLED true
+				daemon_start
+				docker compose up -d --no-build
+				echo "Server shell is on: Research > Command line > Server shell (administrators with two-step sign-in)."
+				echo "It asks for this server's SSH username and password each session."
+				;;
+			off)
+				env_set COMPOSE_PROFILES "$(echo ",$profiles," | sed 's/,shell,/,/; s/^,//; s/,$//')"
+				env_set SHELL_ENABLED false
+				daemon_start
+				docker compose rm -sf shell >/dev/null 2>&1 || true
+				docker compose up -d --no-build
+				echo "Server shell is off."
+				;;
+			*) echo "Usage: ./ctl.sh shell on|off" >&2; exit 1 ;;
+		esac
 		;;
 	doctor)
 		daemon_start

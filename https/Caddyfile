@@ -11,8 +11,19 @@
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
-	reverse_proxy web:3000 {
-		header_up X-Forwarded-Proto https
+	# The server shell (./ctl.sh shell on). Every request, the WebSocket included,
+	# is first put to Kivuli: an administrator with two-step sign-in who opened the
+	# shell in the console gets through to the SSH login; anyone else gets 403.
+	handle /shell* {
+		forward_auth web:3000 {
+			uri /api/shell/authorize
+		}
+		reverse_proxy shell:3000
+	}
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Forwarded-Proto https
+		}
 	}
 	log {
 		output stdout

@@ -444,6 +444,16 @@ unless `net.ipv4.ip_unprivileged_port_start` allows it; with
 `KIVULI_DOCKER=system` it can. `./ctl.sh update` refuses to run over local
 changes to tracked files. Back up before upgrading: `./ctl.sh backup`.
 
+**Server shell.** `./ctl.sh shell on` (after HTTPS) adds a terminal on the
+server itself under *Research > Command line > Server shell*. It is WeTTY, a
+browser SSH client in its own container with no published port; Caddy puts
+every request to `/shell` to Kivuli first, which lets through only an
+administrator with two-step sign-in who pressed *Open server shell* (audited,
+valid 12 hours). The server's own SSH login is then asked every session, so
+SSH password login must be allowed for that user, and `SHELL_SSH_PORT` must
+match your SSH port. No Kivuli container gets access to the host.
+`./ctl.sh shell off` removes it.
+
 ## Before exposing it beyond localhost
 
 - Put the console behind TLS (`./ctl.sh https <domain> <email>`), which sets `COOKIE_SECURE=true` and `PUBLIC_URL`.

@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useSession } from "@/components/session";
 import { PageHeader } from "@/components/shell";
-import { api } from "@/lib/api";
+import { Button, Tabs } from "@/components/ui";
+import { api, useApi } from "@/lib/api";
 import { defang, num } from "@/lib/format";
 
 /*
@@ -197,7 +199,47 @@ function loadHistory(): string[] {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]"); } catch { return []; }
 }
 
+interface ShellStatus { enabled: boolean; allowed: boolean; reason: string; open: boolean; grant_hours: number; ssh_host: string; ssh_port: number }
+
+/** A browser SSH terminal to the VPS itself (WeTTY behind Caddy, gated by Kivuli). Asks for the server's SSH login every session. */
+function ServerShell() {
+  const { data, error, mutate } = useApi<ShellStatus>("/shell/status");
+  const [frame, setFrame] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const act = async (path: string, show: boolean) => {
+    setBusy(true); setProblem("");
+    try { await api(path, { method: "POST" }); setFrame(show ? Date.now() : 0); await mutate(); }
+    catch (e) { setProblem(e instanceof Error ? e.message : "failed"); }
+    finally { setBusy(false); }
+  };
+  if (error) return <p className="text-sm text-critical">{error.status === 403 ? "Only administrators can open the server shell." : error.message}</p>;
+  if (!data) return <p className="text-sm text-muted">Checking…</p>;
+  if (!data.allowed) {
+    return (
+      <div className="rounded-lg border border-line bg-[var(--raised)] px-4 py-4 text-sm">
+        <p className="font-medium text-ink">The server shell is not available.</p>
+        <p className="mt-1 text-ink-2">{data.reason}</p>
+        <p className="mt-3 text-xs text-muted">On the server: <code>./ctl.sh https &lt;domain&gt; &lt;email&gt;</code>, then <code>./ctl.sh shell on</code>. It logs in to this server's own SSH with the username and password you type, every session.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {frame ? <Button busy={busy} onClick={() => act("/shell/close", false)}>Close the shell</Button>
+          : <Button variant="primary" busy={busy} onClick={() => act("/shell/open", true)}>Open server shell</Button>}
+        <span className="text-xs text-muted">SSH to {data.ssh_host}:{data.ssh_port}. Opening is recorded in the audit log; access lasts {data.grant_hours} hours unless closed.</span>
+      </div>
+      {problem && <p className="text-sm text-critical">{problem}</p>}
+      {frame ? <iframe key={frame} src="/shell/" title="Server shell" className="h-[66vh] w-full rounded-lg border border-line bg-black" /> : null}
+    </div>
+  );
+}
+
 export default function TerminalPage() {
+  const { isAdmin } = useSession();
+  const [tab, setTab] = useState<"kivuli" | "server">("kivuli");
   const router = useRouter();
   const [lines, setLines] = useState<Line[]>([{ kind: "out", text: "Kivuli command line. Type help for the commands; Tab completes, ↑ ↓ walk your history.", tone: "muted" }]);
   const [input, setInput] = useState("");
@@ -264,8 +306,9 @@ export default function TerminalPage() {
   const tone = { muted: "text-muted", error: "text-critical", good: "text-good", warn: "text-warning" } as const;
   return (
     <>
-      <PageHeader title="Command line" subtitle="Kivuli's commands, typed. Each runs with your account's permissions and is audited like the rest of the console; nothing runs on the server's shell." />
-      <div className="rounded-lg border border-line bg-[var(--raised)] font-mono text-[13px] leading-relaxed" onClick={() => box.current?.focus()}>
+      <PageHeader title="Command line" subtitle="Kivuli's commands, or a shell on the server itself for administrators." />
+      {isAdmin && <div className="mb-3"><Tabs<"kivuli" | "server"> tabs={[{ id: "kivuli", label: "Kivuli commands" }, { id: "server", label: "Server shell" }]} value={tab} onChange={setTab} /></div>}
+      {tab === "server" ? <ServerShell /> : <div className="rounded-lg border border-line bg-[var(--raised)] font-mono text-[13px] leading-relaxed" onClick={() => box.current?.focus()}>
         <div className="scroll-thin h-[62vh] overflow-y-auto px-4 py-3" aria-live="polite">
           {lines.map((l, i) => (
             <div key={i} className="min-w-0">
@@ -290,7 +333,7 @@ export default function TerminalPage() {
           <input ref={box} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey} disabled={busy} spellCheck={false} autoComplete="off"
                  aria-label="Command" placeholder={busy ? "working…" : "type a command, e.g. verdict 185.220.101.4"} className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-muted" />
         </label>
-      </div>
+      </div>}
     </>
   );
 }

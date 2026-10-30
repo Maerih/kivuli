@@ -277,8 +277,15 @@ list. Tab completes a command, ↑ and ↓ walk your history, Ctrl+L clears.
 | `open <page>` | Go to a page (`open trends`) |
 
 Each command calls the same API as the rest of the console with your
-session: it can do what your role can, it is in the audit log like any other
-action, and nothing runs on the server's shell.
+session: it can do what your role can, and it is in the audit log like any
+other action.
+
+**Server shell** (administrators). A second tab gives a real terminal on the
+server, when an administrator has turned it on with `./ctl.sh shell on`
+(HTTPS is required). You need two-step sign-in on your account. Press *Open
+server shell*, then log in with the server's SSH username and password; every
+session asks again. Opening it is recorded in the audit log and lasts 12 hours
+unless you press *Close the shell*.
 
 ## 6. Source explorer and source profiles
 
