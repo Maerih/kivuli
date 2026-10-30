@@ -260,7 +260,7 @@ def source_profile(source_id: int, db: Session = Depends(get_db), user: User = D
         **_source_brief(s), "url": s.url, "route": s.route, "connector": s.connector, "trust": s.trust, "language": s.language,
         "language_name": LANGUAGE_NAMES.get(s.language, ""), "notes": s.notes, "crawl_interval_minutes": s.crawl_interval_minutes, "max_depth": s.max_depth,
         "max_pages": s.max_pages, "last_error": s.last_error, "last_checked_at": iso(s.last_checked_at), "last_crawled_at": iso(s.last_crawled_at),
-        "last_changed_at": iso(s.last_changed_at), "defanged": defang(s.url),
+        "last_changed_at": iso(s.last_changed_at), "defanged": defang(s.url), "render_js": bool((s.config or {}).get("render_js")),
         "discovered_from": {"id": parent.id, "name": parent.name} if parent else None,
         "observed": {"first": iso(span[0] or s.created_at), "last": iso(span[1] or s.last_live_at), "pages": span[2]},
         "availability": {"checks_30d": checks, "answered_30d": answered, "percent": round(100 * answered / checks) if checks else None,

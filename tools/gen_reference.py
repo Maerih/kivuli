@@ -262,6 +262,7 @@ SETTINGS = {
     "EVIDENCE_DIR": "Where raw captures are written inside the container.",
     "REDACT_SECRETS": "Mask passwords, keys and card numbers before anything is stored, indexed or emailed.",
     "TOR_SOCKS_URL": "The Tor gateway's SOCKS address.", "EGRESS_PROXY_URL": "The allow-listing egress proxy.",
+    "RENDER_URL": "The JavaScript renderer (crawler only).", "RENDER_TIMEOUT_SECONDS": "Seconds allowed to render one page in the headless browser.",
     "TOR_USER_AGENT": "User-Agent sent through Tor (that of Tor Browser, so the crawler does not stand out).",
     "DIRECT_USER_AGENT": "User-Agent sent to clearnet feeds and providers (identifies the platform honestly).",
     "CRAWL_MAX_BYTES": "Largest page body read. Larger responses are cut off.", "CRAWL_TIMEOUT_SECONDS": "Longest wait for one page.",

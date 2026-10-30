@@ -40,6 +40,7 @@ def _out(s: Source) -> dict:
         "created_at": iso(s.created_at), "title": s.title, "language": s.language, "relevance": s.relevance, "last_changed_at": iso(s.last_changed_at),
         "state": "unknown" if s.is_live is None else "offline" if not s.is_live else "degraded" if s.consecutive_failures else "online",
         "egress_blocked": s.route == "direct" and not _egress_allowed(s.host),
+        "render_js": bool((s.config or {}).get("render_js")),
     }
 
 
@@ -98,6 +99,7 @@ class SourceIn(BaseModel):
     notes: str = Field("", max_length=5000)
     approve: bool = False
     feed_tag: str = Field("", max_length=32, pattern=r"^[a-z0-9-]*$")  # what an indicator feed lists: phishing, c2, botnet...
+    render_js: bool = False  # load pages in the disposable headless browser (html sources only)
 
 
 class SourcePatch(BaseModel):
@@ -110,6 +112,7 @@ class SourcePatch(BaseModel):
     max_depth: int | None = Field(None, ge=0, le=3)
     max_pages: int | None = Field(None, ge=1, le=200)
     notes: str | None = Field(None, max_length=5000)
+    render_js: bool | None = None
 
 
 def _check_route(route: str, network: str, url: str) -> str:
@@ -143,7 +146,8 @@ def create_source(body: SourceIn, request: Request, db: Session = Depends(get_db
         name=body.name.strip(), url=url, host=host, network=network, connector=body.connector, category=body.category,
         route=_check_route(body.route, network, url), trust=body.trust, crawl_interval_minutes=body.crawl_interval_minutes,
         max_depth=body.max_depth if body.connector == "html" else 0, max_pages=body.max_pages, notes=body.notes,
-        config=({"tag": body.feed_tag or "threat-feed", "max_bytes": 6_000_000} if body.connector == "ioc_feed" else {}),
+        config=({"tag": body.feed_tag or "threat-feed", "max_bytes": 6_000_000} if body.connector == "ioc_feed"
+                else {"render_js": True} if body.render_js and body.connector == "html" else {}),
         status="approved" if body.approve else "candidate", created_by=user.id,
     )
     db.add(source)
@@ -169,13 +173,20 @@ def update_source(source_id: int, body: SourcePatch, request: Request, db: Sessi
         raise HTTPException(400, "Unknown category")
     if body.route is not None:
         changes["route"] = _check_route(body.route, source.network, source.url)
+    if body.render_js is not None:
+        if body.render_js and source.connector != "html":
+            raise HTTPException(400, "Only web page sources can be rendered with JavaScript")
+        # Reassigned, not mutated, so the JSON column is written.
+        source.config = {**(source.config or {}), "render_js": body.render_js}
+        changes.pop("render_js")
     was = source.status
     for key, value in changes.items():
         setattr(source, key, value)
     if body.status == "approved" and was != "approved":
         source.consecutive_failures = 0
         source.last_crawled_at = None  # picked up by the scheduler within a minute
-    audit(db, request, user, "source.update", "source", source.id, **changes)
+    audit(db, request, user, "source.update", "source", source.id, **changes,
+          **({"render_js": body.render_js} if body.render_js is not None else {}))
     db.commit()
     return _out(source)
 

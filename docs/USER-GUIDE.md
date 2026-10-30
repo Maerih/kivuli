@@ -294,6 +294,10 @@ them until you approve it; forum and market entries are marked as likely needing
 a login or invitation, which the platform does not do.
 
 **Add source** adds a site, feed or public Telegram channel by address.
+Tick *Render JavaScript* for a site whose pages are empty without scripts; it
+can also be switched on or off later under *How it is collected* on the source's
+page. Rendered pages load in a disposable browser through the same route (Tor or
+the allow-list), take longer, and never load images.
 
 ### Source profile
 

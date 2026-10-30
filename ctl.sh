@@ -106,12 +106,13 @@ daemon_stop() {
 # when nothing changed this takes a second or two.
 build_images() {
 	local targets=("$@")
-	[ ${#targets[@]} -eq 0 ] && targets=(backend tor search web)
+	[ ${#targets[@]} -eq 0 ] && targets=(backend tor render search web)
 	local name dir img
 	for name in "${targets[@]}"; do
 		case "$name" in
 			backend | api | crawler | pipeline | notify | beat | egress) dir=backend img=kivuli-backend ;;
 			tor) dir=tor img=kivuli-tor ;;
+			render) dir=render img=kivuli-render ;;
 			search) dir=search img=kivuli-search ;;
 			web | frontend) dir=frontend img=kivuli-web ;;
 			*) echo "Unknown image: $name" >&2; exit 1 ;;

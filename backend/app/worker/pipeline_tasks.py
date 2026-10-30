@@ -39,7 +39,8 @@ def start_crawl(db, source: Source, probe: bool = False) -> str:
         _redis.sadd(f"kivuli:run:{run_id}:seen", source.url)
         _redis.expire(f"kivuli:run:{run_id}:seen", RUN_TTL)
     enqueue("crawl.fetch", url=source.url, route=source.route, source_id=source.id, run_id=run_id, depth=0, probe=probe,
-            max_bytes=(source.config or {}).get("max_bytes"), connector=source.connector)
+            max_bytes=(source.config or {}).get("max_bytes"), connector=source.connector,
+            render=bool((source.config or {}).get("render_js")))
     return run_id
 
 
@@ -315,6 +316,7 @@ def _ingest_fetch(result: dict, source_id: int, run_id: str, depth: int, probe: 
                         _redis.incr(run_key(run_id, "pending"))
                     enqueue("crawl.fetch", url=link, route=source.route, source_id=source.id, run_id=run_id, depth=depth + 1,
                             max_bytes=(source.config or {}).get("max_bytes"), connector="html",
+                            render=bool((source.config or {}).get("render_js")),
                             extra={**extra, "parent": result.get("final_url") or result["url"]} if job else {"parent": result.get("final_url") or result["url"]})
 
         # Which sites this one points at: the map behind "related sources" and "frequently referenced".

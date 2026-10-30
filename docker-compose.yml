@@ -7,7 +7,7 @@ name: kivuli
 #   data       api, pipeline, notify <-> postgres, search      internal
 #   queue      api, pipeline, notify, beat <-> redis           internal
 #   crawlq     crawler, enricher <-> redis (and nothing else)  internal
-#   crawl      crawler, enricher <-> tor, egress               internal
+#   crawl      crawler, enricher, render <-> tor, egress       internal
 #   tor_out    tor only               internet (Tor network)
 #   clear_out  egress only            internet (allowlisted HTTPS)
 #   mail       notify <-> mailpit     internal
@@ -139,6 +139,26 @@ services:
       EGRESS_ALLOW_HOSTS: ${EGRESS_ALLOW_HOSTS:-}
     networks: [crawl, clear_out]
 
+  # Headless browser for sources marked "Render JavaScript". No internet route,
+  # no secrets, no volumes: it reaches pages only through Tor or the egress proxy,
+  # and only the crawler talks to it. A fresh browser and profile for every page.
+  render:
+    <<: *hardening
+    image: kivuli-render
+    build: ./render
+    tmpfs: ["/tmp:size=512m"]
+    environment:
+      RENDER_TOR_PROXY: socks5://tor:9050
+      RENDER_EGRESS_PROXY: http://egress:8888
+      RENDER_MAX_BYTES: ${CRAWL_MAX_BYTES:-2000000}
+      RENDER_TIMEOUT_SECONDS: ${RENDER_TIMEOUT_SECONDS:-90}
+      RENDER_CONCURRENCY: ${RENDER_CONCURRENCY:-2}
+    mem_limit: 1536m
+    networks: [crawl]
+    depends_on:
+      tor: {condition: service_started}
+      egress: {condition: service_started}
+
   crawler:
     <<: *backend
     command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "crawl", "-n", "crawler@%h", "--concurrency", "${CRAWLER_CONCURRENCY:-6}", "--loglevel", "INFO", "--without-gossip", "--without-mingle"]
@@ -147,6 +167,8 @@ services:
       ROLE: crawler
       TOR_SOCKS_URL: socks5h://tor:9050
       EGRESS_PROXY_URL: http://egress:8888
+      RENDER_URL: http://render:9300
+      RENDER_TIMEOUT_SECONDS: ${RENDER_TIMEOUT_SECONDS:-90}
       CRAWL_MAX_BYTES: ${CRAWL_MAX_BYTES:-2000000}
       CRAWL_TIMEOUT_SECONDS: ${CRAWL_TIMEOUT_SECONDS:-75}
       CRAWL_HOST_DELAY_SECONDS: ${CRAWL_HOST_DELAY_SECONDS:-3}

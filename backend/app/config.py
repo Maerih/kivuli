@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     # Crawler
     tor_socks_url: str = "socks5h://tor:9050"
     egress_proxy_url: str = "http://egress:8888"
+    render_url: str = "http://render:9300"
+    render_timeout_seconds: int = 90
     tor_user_agent: str = "Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0"
     direct_user_agent: str = "Kivuli-TI/1.0 (defensive threat-intelligence collection)"
     crawl_max_bytes: int = 2_000_000

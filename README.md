@@ -332,7 +332,10 @@ resolved or probed. URLs must be hostnames (no IP literals, no internal names),
 and each redirect hop is re-validated and must stay on the same site.
 
 **Untrusted content is inert.** Pages are parsed as a static tree in a container
-with no network; no JavaScript is executed anywhere. The console renders
+with no network. JavaScript runs only for sources you mark "Render JavaScript",
+and then only in a disposable headless browser that has no internet route of its
+own (Tor or the allow-listing proxy only), no secrets, and a fresh profile per
+page. The console renders
 captured text as text - search highlights travel as structured parts, not HTML -
 and indicators are shown defanged and are never links.
 
@@ -435,9 +438,9 @@ the first time; later starts reuse the cached layers.
 
 - **Search covers what has been collected**, not the live dark web. Coverage
   grows with the sources being collected and the crawls you run.
-- **No JavaScript rendering, so no screenshots.** Pages are fetched and parsed
-  statically; the stored snapshot is the page's text and the hash of the
-  original. Not running hostile code is worth more than the sites that need it.
+- **JavaScript only where you ask for it, and no screenshots.** Pages are
+  fetched and parsed statically unless a source is marked "Render JavaScript";
+  either way the stored snapshot is the page's text and a hash, never an image.
 - **No images or attachments**, by design: on these sites they are where illegal
   material and malware live.
 - **No onion search-engine scraping.** Engines such as Ahmia gate automated

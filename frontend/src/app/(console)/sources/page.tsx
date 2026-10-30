@@ -23,7 +23,7 @@ const VIEWS = ["new", "changed", "referenced", "offline"] as const;
 interface SourceList { counts: Record<string, number>; connector_labels?: Record<string, string>; views?: Record<string, number>; referenced?: Record<string, number>; onion?: { approved: number; candidate: number }; categories: string[]; connectors: Record<string, string>; egress_allow_hosts: string[]; items: Source[] }
 interface LogRow { id: number; url: string; depth: number; probe: boolean; fetched_at: string; ok: boolean; http_status: number | null; bytes: number; elapsed_ms: number; error: string; new_docs: number; changed_docs: number; unchanged_docs: number }
 
-const BLANK = { name: "", url: "", connector: "html", category: "other", route: "tor", trust: 50, crawl_interval_minutes: 360, max_depth: 1, max_pages: 25, notes: "", approve: false, feed_tag: "" };
+const BLANK = { name: "", url: "", connector: "html", category: "other", route: "tor", trust: 50, crawl_interval_minutes: 360, max_depth: 1, max_pages: 25, notes: "", approve: false, feed_tag: "", render_js: false };
 
 function Liveness({ s }: { s: Source }) {
   if (s.status === "blocked") return <Badge><Ban className="h-3 w-3" />Never contacted</Badge>;
@@ -172,6 +172,7 @@ function SourcesPage() {
           </div>
           {form.connector === "telegram_public" && <p className="rounded-md bg-sunken px-3 py-2 text-xs text-muted">Reads the public web preview of a channel (t.me/s/…), the same page anyone can open without an account. Private channels, groups and anything that needs joining or logging in are out of scope. Add <code className="font-mono">t.me</code> to EGRESS_ALLOW_HOSTS for the direct route.</p>}
           {form.connector === "ioc_feed" && <p className="rounded-md bg-sunken px-3 py-2 text-xs text-muted">A plain-text list with one indicator per line. Listed indicators are recorded and flagged wherever they appear in findings or on your attack surface. They are never contacted.</p>}
+          {form.connector === "html" && <label className="flex items-start gap-2 text-sm text-ink-2"><input type="checkbox" className="mt-0.5 accent-[var(--accent)]" checked={form.render_js} onChange={(e) => set({ render_js: e.target.checked })} /><span>Render JavaScript. <span className="text-muted">For sites that are empty without scripts. Each page loads in a disposable, network-isolated browser through the same route; slower, and images are never loaded.</span></span></label>}
           <label className="flex items-start gap-2 text-sm text-ink-2"><input type="checkbox" className="mt-0.5 accent-[var(--accent)]" checked={form.approve} onChange={(e) => set({ approve: e.target.checked })} /><span>Approve and start collecting now. <span className="text-muted">Otherwise it is added as a candidate and only checked for liveness.</span></span></label>
         </div>
       </Modal>

@@ -100,6 +100,7 @@ another role's tasks even if asked to.
 | `api` | HTTP API. Runs migrations and seeding on start | app, data, queue | database and index credentials, session key, both encryption keys |
 | `pipeline` | Parses, redacts, extracts, scores, matches, indexes | data, queue | database and index credentials, evidence key |
 | `crawler` | Fetches pages | crawl, crawlq | nothing but the queue password |
+| `render` | Headless Chromium for sources marked "Render JavaScript" | crawl | nothing |
 | `enricher` | Asks enrichment providers and the AI API | crawl, crawlq | provider keys (from `.env`), the key that decrypts console-entered provider keys |
 | `notify` | Sends email and alerts to destinations | data, queue, mail, mail_out | database credentials, SMTP password, secrets key |
 | `beat` | Fires scheduled tasks | queue | queue password |
@@ -112,7 +113,7 @@ another role's tasks even if asked to.
 
 Every backend container runs as an unprivileged user on a read-only root
 filesystem with all capabilities dropped and `no-new-privileges`. The crawler
-and enricher are limited to 1 GB of memory.
+and enricher are limited to 1 GB of memory, the renderer to 1.5 GB.
 
 ### Networks
 
@@ -124,7 +125,7 @@ Ten networks; six are `internal` (no route out).
 | `data` | yes | api, pipeline, notify ↔ postgres, search |
 | `queue` | yes | api, pipeline, notify, beat ↔ redis |
 | `crawlq` | yes | crawler, enricher ↔ redis |
-| `crawl` | yes | crawler, enricher ↔ tor, egress |
+| `crawl` | yes | crawler, enricher, render ↔ tor, egress |
 | `mail` | yes | notify ↔ mailpit |
 | `public` | no | web, mailpit (published ports) |
 | `tor_out` | no | tor → internet |
@@ -219,6 +220,33 @@ download (`login`, `register`, `captcha`, `download`, `cart`, `checkout`,
 A page that is a login form or an anti-bot wall is recorded as such
 (`login required - not collected`, `CAPTCHA or anti-bot wall - not collected`)
 and nothing is stored from it.
+
+### 4.3a JavaScript rendering
+
+`render/server.py` and `app/crawl/render.py`. Opt-in per source (`render_js`
+in the source's config; *Render JavaScript* in the console). When it is on, the
+crawler validates the URL with the fetcher's rules and asks the `render`
+container for the page; liveness probes still use a plain fetch.
+
+- **One browser per page.** Each request starts a new headless Chromium with a
+  new profile in tmpfs, dumps the DOM after scripts ran (`--dump-dom` with a
+  virtual-time budget), kills the process group and deletes the profile. At
+  most `RENDER_CONCURRENCY` pages at once; `RENDER_TIMEOUT_SECONDS` each.
+- **Every request through a proxy.** Onion sites and the Tor route use
+  `socks5://tor:9050`; the direct route uses the egress proxy, so the
+  allow-list applies to every sub-request a page's scripts make. Local name
+  resolution is mapped to nothing, the loopback bypass is removed, and WebRTC is
+  limited to proxied traffic. The container is only on the internal `crawl`
+  network, so it has no route out even if the browser ignored all of that.
+- **Nothing extra is loaded or kept.** No images, remote fonts, plugins,
+  extensions, downloads, sync, crash reports or component updates.
+- **The result is an ordinary fetch result** (`text/html`, recorded as HTTP 200,
+  header `x-kivuli-rendered: javascript`), so parsing, link-following,
+  extraction and versioning are unchanged.
+- **Trade-off.** Chromium's own sandbox is off (`--no-sandbox`): it needs
+  user-namespace privileges the hardened container does not grant. The
+  container is the boundary instead: read-only root, all capabilities dropped,
+  unprivileged user, no secrets, no database, queue or API access.
 
 ### 4.4 The Tor gateway
 

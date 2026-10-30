@@ -14,7 +14,7 @@ import { ago, cn, day, defang, ENTITY_LABELS, shortHost, SOURCE_KIND_LABELS, sta
 
 interface Profile extends SourceBrief {
   url: string; route: string; connector: string; trust: number; language: string; language_name: string; notes: string; crawl_interval_minutes: number;
-  max_depth: number; max_pages: number; last_error: string; last_checked_at: string | null; last_crawled_at: string | null; last_changed_at: string | null;
+  max_depth: number; max_pages: number; render_js: boolean; last_error: string; last_checked_at: string | null; last_crawled_at: string | null; last_changed_at: string | null;
   defanged: string; discovered_from: { id: number; name: string } | null;
   observed: { first: string | null; last: string | null; pages: number };
   availability: { checks_30d: number; answered_30d: number; percent: number | null; days: { date: string; checks: number; answered: number }[] };
@@ -138,6 +138,10 @@ export default function SourceProfilePage() {
             <dl className="space-y-2 px-4 py-3 text-sm">
               {fact("Route", s.route === "tor" ? "Through the Tor gateway" : "Allowlisted direct proxy")}
               {fact("Schedule", s.status === "approved" ? `Every ${s.crawl_interval_minutes >= 60 ? `${Math.round(s.crawl_interval_minutes / 60)} hours` : `${s.crawl_interval_minutes} minutes`}, ${s.max_depth} link${s.max_depth === 1 ? "" : "s"} deep, up to ${s.max_pages} pages` : "Not scheduled")}
+              {s.connector === "html" && fact("JavaScript", <span className="flex items-center justify-between gap-2">
+                <span>{s.render_js ? "Rendered in a disposable browser" : "Not run (plain fetch)"}</span>
+                {canWrite && <button className="text-xs text-accent-ink hover:underline" onClick={() => patch({ render_js: !s.render_js }, s.render_js ? "Pages will be fetched without JavaScript" : "Pages will be rendered with JavaScript from the next crawl")}>{s.render_js ? "Turn off" : "Turn on"}</button>}
+              </span>)}
               {fact("Last checked", s.last_checked_at ? ago(s.last_checked_at) : "never")}
               {fact("Last crawled", s.last_crawled_at ? ago(s.last_crawled_at) : "never")}
             </dl>

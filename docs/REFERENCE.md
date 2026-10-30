@@ -902,6 +902,8 @@ Environment settings, read from `.env` by `./ctl.sh` and passed to the container
 | `REDACT_SECRETS` | `True` | Mask passwords, keys and card numbers before anything is stored, indexed or emailed. |
 | `TOR_SOCKS_URL` | `socks5h://tor:9050` | The Tor gateway's SOCKS address. |
 | `EGRESS_PROXY_URL` | `http://egress:8888` | The allow-listing egress proxy. |
+| `RENDER_URL` | `http://render:9300` | The JavaScript renderer (crawler only). |
+| `RENDER_TIMEOUT_SECONDS` | `90` | Seconds allowed to render one page in the headless browser. |
 | `TOR_USER_AGENT` | `Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0` | User-Agent sent through Tor (that of Tor Browser, so the crawler does not stand out). |
 | `DIRECT_USER_AGENT` | `Kivuli-TI/1.0 (defensive threat-intelligence collection)` | User-Agent sent to clearnet feeds and providers (identifies the platform honestly). |
 | `CRAWL_MAX_BYTES` | `2000000` | Largest page body read. Larger responses are cut off. |

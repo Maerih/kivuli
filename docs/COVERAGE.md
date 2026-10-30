@@ -47,7 +47,7 @@ collects and the crawls you run.
 | Private Telegram groups, Discord, chat services | **No** | Need an account |
 | Onion search engines and directories | **No** | Not scraped |
 | I2P, Freenet, other networks | **No** | Tor only |
-| Sites that need JavaScript to show their content | **Little or nothing** | Pages are read as served, without running scripts |
+| Sites that need JavaScript to show their content | **Partial** | Only for sources marked "Render JavaScript": loaded in a disposable, network-isolated headless browser |
 
 ### How new sites are found
 
@@ -152,7 +152,7 @@ limits. **Not built** is absent.
 | Collection policy set in the console | Built | Never / leak sites / leak sites and relevant sites |
 | Page snapshots | Partial | Text and hashes; no rendered image |
 | Images and attachments | Not built | Deliberately |
-| JavaScript rendering | Not built | Deliberately |
+| JavaScript rendering | Built | Per source, opt-in; disposable Chromium behind Tor or the egress proxy; no images, no screenshots |
 | Logins, CAPTCHAs | Not built | Deliberately |
 
 ### Sources

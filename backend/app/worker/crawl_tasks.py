@@ -9,6 +9,7 @@ import redis
 from app.config import get_settings
 from app.crawl.blocklist import is_blocked
 from app.crawl.fetcher import fetch
+from app.crawl.render import render as render_page
 from app.extract.relevance import page_title
 from app.worker.celery_app import celery_app, enqueue
 
@@ -20,7 +21,8 @@ TOR_STATUS_KEY = "kivuli:status:tor"
 
 @celery_app.task(name="crawl.fetch", bind=True, max_retries=40, soft_time_limit=200, time_limit=230)
 def crawl_fetch(self, *, url: str, route: str, source_id: int, run_id: str, depth: int = 0, probe: bool = False,
-                max_bytes: int | None = None, connector: str = "html", attempt: int = 0, extra: dict | None = None):
+                max_bytes: int | None = None, connector: str = "html", attempt: int = 0, extra: dict | None = None,
+                render: bool = False):
     host = (urlsplit(url).hostname or "").lower()
     if is_blocked(_redis, host):
         # Known abuse material: never fetched, whoever or whatever asked.
@@ -34,13 +36,18 @@ def crawl_fetch(self, *, url: str, route: str, source_id: int, run_id: str, dept
     if not _redis.set(f"kivuli:crawl:host:{host}", "1", nx=True, px=int(delay * 1000)):
         raise self.retry(countdown=delay * (1 + random.random()))
 
-    result = fetch(url, route=route, max_bytes=32_768 if probe and connector == "html" else max_bytes)
+    # A liveness probe only needs to know the site answers: a plain fetch, never the browser.
+    if render and connector == "html" and not probe:
+        result = render_page(url, route=route, max_bytes=max_bytes)
+    else:
+        result = fetch(url, route=route, max_bytes=32_768 if probe and connector == "html" else max_bytes)
 
     # Tor circuits fail often: transient errors get two more attempts (one for a
     # liveness probe) before the failure is reported.
     if result.transient and attempt < (1 if probe else 2):
         enqueue("crawl.fetch", countdown=20 * (attempt + 1), url=url, route=route, source_id=source_id, run_id=run_id,
-                depth=depth, probe=probe, max_bytes=max_bytes, connector=connector, attempt=attempt + 1, extra=extra)
+                depth=depth, probe=probe, max_bytes=max_bytes, connector=connector, attempt=attempt + 1, extra=extra,
+                render=render)
         return
 
     payload = result.as_dict()
