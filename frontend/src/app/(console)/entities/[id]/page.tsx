@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AddToCase, AiLabel, AiSources, CitedText, Defanged, FindingRow, Notes, useAiJob } from "@/components/bits";
+import { ActorPatterns } from "@/components/actorpatterns";
 import { BarList, MiniColumns } from "@/components/charts";
 import { PageHeader } from "@/components/shell";
 import { useSession } from "@/components/session";
@@ -104,6 +105,7 @@ export default function EntityPage() {
               <div className="px-4 pb-3 pt-8"><MiniColumns height={72} values={e.timeline.map((t) => t.count)} labels={e.timeline.map((t) => `Week of ${day(t.date)}`)} caption={`Weekly findings mentioning ${e.name}`} /></div>
             </Card>
           )}
+          {e.type === "actor" && <ActorPatterns entityId={e.id} name={e.name} />}
           <Card>
             <CardHeader title="Findings" hint={e.doc_count > e.findings.length ? `Latest ${e.findings.length} of ${e.doc_count}` : undefined} />
             {e.findings.length === 0 ? <Empty title="No findings linked yet" /> : e.findings.map((f) => <FindingRow key={f.id} f={f} />)}

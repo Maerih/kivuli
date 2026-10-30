@@ -509,6 +509,18 @@ is never contacted). For a domain or URL this includes the Wayback Machine: how
 many archived snapshots exist, the first and last, and how many distinct versions. *Mark benign* stops a harmless shared value from linking
 unrelated findings.
 
+**Activity patterns** (on a threat actor's page). Counted from the actor's own
+claims (tracker posts naming it as the actor, and pages of its leak site), not
+from news that mentions it. Claims in total and in the last 30 days (compared
+with the 30 before only once Kivuli has collected for 60 days), the typical
+gap between claim days, the longest quiet stretch, claims by day of the week,
+where its claims appear and who writes about it, and month by month its main
+sectors and countries and the ones that are new that month. Days on which
+Kivuli did not collect the actor's sources are left out of the gap and quiet
+figures, so downtime is not mistaken for the actor going quiet. Hours of the
+day are not shown: trackers date a post when they discover it, which says
+more about the tracker than the actor.
+
 **Event timeline.** Incidents over 7, 30 or 90 days on a time axis, one row
 per threat actor (the twelve busiest, then *Other actors* and *No named
 actor*). Each dot is a finding, coloured by type; larger dots are high or

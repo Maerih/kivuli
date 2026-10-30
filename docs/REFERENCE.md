@@ -142,6 +142,7 @@ All paths are under `/api`. A request is authenticated by the session cookie (co
 | POST | `/entities` | analyst | Create an actor, organisation, malware family or campaign. |
 | GET | `/entities/{entity_id}` | viewer | An entity: profile, activity over time, findings, related entities, indicators, countries and sectors. |
 | PATCH | `/entities/{entity_id}` | analyst | Edit name, aliases or description. |
+| GET | `/entities/{entity_id}/patterns` | viewer | How an actor operates: tempo, weekdays, where it posts, how its targeting changes, and who reports on it. |
 | GET | `/graph` | viewer | Relationship neighbourhood of an entity, indicator or finding. |
 | GET | `/iocs` | viewer | Indicators; filter by type and text. |
 | GET | `/iocs/{ioc_id}` | viewer | An indicator: where it appears with surrounding text, associated entities, and indicators seen with it. |
@@ -249,7 +250,7 @@ Every TAXII path also answers without its trailing slash, because reverse proxie
 | GET | `/healthz` | public | Liveness probe for the container. |
 | GET | `/metrics` | analyst | Prometheus exposition. Scrape with an API key: Authorization: Bearer <key>. |
 
-140 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
+141 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
 
 ## Data model
 

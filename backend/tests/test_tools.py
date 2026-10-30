@@ -86,3 +86,32 @@ def test_timeline_links_chain_in_time_order():
     assert _chain(["a", "b", "c", "a"], when) == [("b", "c"), ("c", "a")]
     assert _chain(["a"], when) == []
     assert "github.com" in COMMON_PLATFORMS and "cisa.gov" in COMMON_PLATFORMS
+
+
+def test_actor_patterns_summary():
+    from datetime import datetime, timezone
+
+    from app.api.patterns import summarise
+
+    now = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
+    d = lambda day, month=10: datetime(2026, month, day, 9, tzinfo=timezone.utc)  # noqa: E731
+    claims = [(d(5, 9), ["US"], ["Healthcare"]), (d(1), ["US"], ["Healthcare"]), (d(2), ["DE"], ["Education"]),
+              (d(2), ["US"], ["Healthcare"]), (d(28), ["KE"], ["Finance"]), (None, [], [])]
+    r = summarise(claims, now)
+    assert r["claims"] == 6 and r["dated"] == 5
+    assert r["last_30_days"] == 4 and r["previous_30_days"] == 1
+    # 1 Oct 2026 is a Thursday, 2 Oct (twice) a Friday, 28 Oct a Wednesday, 5 Sep a Saturday.
+    assert [w["count"] for w in r["weekdays"]] == [0, 0, 1, 1, 2, 1, 0]
+    oct_ = next(m for m in r["monthly"] if m["month"] == "2026-10")
+    assert oct_["claims"] == 4 and set(oct_["new_sectors"]) == {"Education", "Finance"}  # Healthcare was seen in September
+    assert {c["code"] for c in oct_["new_countries"]} == {"DE", "KE"}
+    sep = next(m for m in r["monthly"] if m["month"] == "2026-09")
+    assert sep["new_sectors"] == []  # the first month in view has nothing to be new against
+    # Without coverage data every day counts: the window opens on 3 May, and 3 May - 4 Sep had no claim.
+    assert r["longest_quiet_days"] == 125
+
+    # Kivuli collected 1-5 and 26-30 Oct only: the silence in between is a collection gap, not the actor.
+    covered = {datetime(2026, 10, n).date() for n in (*range(1, 6), *range(26, 31))}
+    r = summarise(claims, now, covered)
+    assert r["longest_quiet_days"] == 3  # 3-5 Oct, then 26-27 Oct; the gap 6-25 Oct ends each run
+    assert r["uncollected_days"] == 20 and r["median_gap_days"] == 1  # the 2 -> 28 Oct gap spans uncollected days
