@@ -18,7 +18,7 @@ interface Detail {
   related_iocs: { id: number; type: string; value: string; shared: number }[];
 }
 interface Enrichment {
-  tags: string[]; feeds: string[]; benign: boolean; enrichable: boolean;
+  tags: string[]; feeds: string[]; benign: boolean; enrichable: boolean; key_rejected?: { provider: string; label: string; message: string }[];
   results: { provider: string; label: string; fetched_at: string; ok: boolean; verdict: string; score: number | null; summary: Record<string, unknown>; error: string }[];
 }
 const WATCHABLE = new Set(["domain", "email", "ip", "cve", "hash", "crypto", "username"]);
@@ -74,6 +74,7 @@ export default function IndicatorPage() {
           {enr && (enr.enrichable || enr.results.length > 0) && (
             <Card>
               <CardHeader title="External context" hint="What reputation and scan-data services say about it" action={canWrite && enr.enrichable && <Button size="sm" busy={busy} onClick={enrich}><RefreshCw className="h-3.5 w-3.5" /> {enr.results.length ? "Refresh" : "Look up"}</Button>} />
+{(enr.key_rejected ?? []).length > 0 && <p className="border-t border-line px-4 py-2 text-xs text-warning">{(enr.key_rejected ?? []).map((k) => k.label).join(", ")} skipped: {(enr.key_rejected ?? []).length === 1 ? "its key was" : "their keys were"} rejected. <Link href="/integrations" className="underline">Replace under Integrations</Link>; the free providers still answer.</p>}
               {enr.results.length === 0 ? <p className="px-4 py-3 text-sm text-muted">Not looked up yet. A lookup asks the configured providers about this value; the indicator itself is never contacted.</p> : (
                 <ul className="divide-y divide-line">
                   {enr.results.map((r) => (

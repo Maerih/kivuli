@@ -45,7 +45,7 @@ function Indicators({ items }: { items: FoundIoc[] }) {
 // ── Quick verdict ──────────────────────────────────────────────────────────
 interface ProviderResult { provider: string; label: string; fetched_at: string; ok: boolean; verdict: string; score: number | null; summary: Record<string, unknown>; error: string }
 interface Verdict {
-  value: string; type: string; defanged: string; verdict: string; reasons: string[]; enrichable: boolean; providers_for_type: string[];
+  value: string; type: string; defanged: string; verdict: string; reasons: string[]; enrichable: boolean; providers_for_type: string[]; key_rejected: { provider: string; label: string; message: string }[];
   indicator: { id: number; findings: number; first_seen: string | null; last_seen: string | null; feeds: string[]; tags: string[]; benign: boolean } | null;
   findings: FindingSummary[]; watchlists: { id: number; name: string }[]; results: ProviderResult[];
   wallet: { category: string; label: string; balance: number | null; token: string } | null;
@@ -117,6 +117,7 @@ function VerdictTool() {
             </Card>
             <Card>
               <CardHeader title="Providers" hint={data.enrichable ? (data.providers_for_type.length ? `Switched on for this type: ${data.providers_for_type.join(", ")}` : "No provider is switched on for this type") : "No provider covers this type; collected intelligence only"} />
+{(data.key_rejected ?? []).length > 0 && <p className="border-t border-line px-4 py-2 text-xs text-warning">{(data.key_rejected ?? []).map((k) => k.label).join(", ")} skipped: {(data.key_rejected ?? []).length === 1 ? "its key was" : "their keys were"} rejected. <Link href="/integrations" className="underline">Replace under Integrations</Link>; the free providers still answer.</p>}
               {data.results.length === 0 ? <p className="px-4 py-3 text-sm text-muted">{data.enrichable ? (canWrite ? "No answers yet." : "No answers yet. An analyst can run the check.") : "Not applicable."}</p> : (
                 <div className="divide-y divide-line">
                   {data.results.map((r) => (

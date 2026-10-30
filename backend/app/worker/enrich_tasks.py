@@ -13,7 +13,7 @@ from celery.signals import worker_ready
 
 from app.ai import analyst
 from app.config import get_settings
-from app.enrich import keys, providers
+from app.enrich import keys, providers, rejected
 from app.enrich.http import EnrichError
 from app.worker.celery_app import celery_app, enqueue
 
@@ -58,6 +58,10 @@ def test_provider(job_id: str, name: str):
         _throttle(name, 1.0)
         result = providers.run_probe(name)
     result = {**result, "latency_ms": int((time.monotonic() - started) * 1000), "key_source": keys.source(name) if name in keys.ENV_SETTING else "not_needed"}
+    if result["ok"]:
+        rejected.clear(name)
+    elif (result.get("detail") or {}).get("reason") == "key_rejected":
+        rejected.mark(name, keys.get(name), result["message"])
     _redis.set(key, json.dumps({"status": "done", "name": name, **result}), ex=900)
     enqueue("pipeline.store_provider_test", name=name, ok=result["ok"], message=result["message"][:500], detail=result.get("detail") or {})
     publish_status()
@@ -81,6 +85,13 @@ def enrich_subject(subject_type: str, value: str, only: list[str] | None = None)
         try:
             result = provider.fetch(subject_type, value)
             enqueue("pipeline.store_enrichment", subject_type=subject_type, subject=value, provider=provider.name, ok=True, **result)
+            if provider.takes_key and rejected.rejection(provider.name):
+                rejected.clear(provider.name)  # a replaced key answered: the old rejection no longer applies
+                publish_status()
+        except providers.KeyRejected as exc:
+            # Stop using this key until it changes; say so once, in the console's provider list, not on every lookup.
+            rejected.mark(provider.name, keys.get(provider.name), f"{exc}. Replace the key under Integrations.")
+            publish_status()
         except EnrichError as exc:
             enqueue("pipeline.store_enrichment", subject_type=subject_type, subject=value, provider=provider.name, ok=False,
                     verdict="unknown", score=None, summary={}, error=str(exc)[:300])

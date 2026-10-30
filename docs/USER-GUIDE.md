@@ -590,6 +590,10 @@ actors, sectors, what is rising. *Executive brief* opens a printable summary.
 - *Enrichment and AI*: every provider with whether it is on, where its key comes
   from, and its last test. **Set key** saves a key and immediately makes a real
   request to the provider to confirm it. **Test** repeats that at any time.
+  When a provider rejects its key, Kivuli stops using that key and says so on
+  the provider (*Not in use*) and once on lookups, instead of failing on every
+  lookup; the free providers keep answering. Saving a different key, or a
+  passing test, puts it back in use.
 - *API, TAXII and STIX*: your API keys, the TAXII 2.1 feed address, and STIX
   import.
 

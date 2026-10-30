@@ -11,7 +11,7 @@ import base64
 from dataclasses import dataclass
 from typing import Callable
 
-from app.enrich import keys
+from app.enrich import keys, rejected
 from app.enrich.http import EnrichError, api_request
 
 Result = dict
@@ -363,6 +363,11 @@ class Provider:
     def enabled(self) -> bool:
         return self.tier != "planned" and (not self.key_setting or self.optional_key or bool(keys.get(self.name)))
 
+    def key_rejected(self) -> str:
+        """Why this provider's current key is not being used, or "" when it is fine."""
+        api_key = keys.get(self.name) if self.takes_key else ""
+        return rejected.rejection(self.name, api_key) if api_key else ""
+
 
 PROVIDERS: list[Provider] = [
     Provider("internetdb", "Shodan InternetDB", ("ip",), internetdb, hosts=("internetdb.shodan.io",), about="Open ports, software and known vulnerabilities from passive scan data", probe=probe_internetdb),
@@ -393,11 +398,13 @@ def catalogue() -> list[dict]:
     """What exists and whether it is switched on, as seen from the container this runs in."""
     return [{"name": p.name, "label": p.label, "kinds": list(p.kinds), "tier": p.tier, "enabled": p.enabled(), "about": p.about,
              "env": p.key_setting.upper(), "hosts": list(p.hosts), "takes_key": p.takes_key, "optional_key": p.optional_key, "signup": p.signup,
-             "testable": p.probe is not None, "key_source": keys.source(p.name) if p.takes_key else "not_needed"} for p in PROVIDERS]
+             "testable": p.probe is not None, "key_source": keys.source(p.name) if p.takes_key else "not_needed",
+             "key_rejected": p.key_rejected()} for p in PROVIDERS]
 
 
 def for_kind(kind: str) -> list[Provider]:
-    return [p for p in PROVIDERS if p.fetch is not None and kind in p.kinds and p.enabled()]
+    """Providers that will be asked about this kind: switched on, and not holding a key they rejected."""
+    return [p for p in PROVIDERS if p.fetch is not None and kind in p.kinds and p.enabled() and not p.key_rejected()]
 
 
 def run_probe(name: str) -> dict:

@@ -16,7 +16,7 @@ interface Integration {
 interface IntegrationList { kinds: Record<string, string>; config_keys: Record<string, string[]>; allow_private: boolean; items: Integration[] }
 interface Delivery { id: number; ts: string; ok: boolean; status_code: number | null; error: string; alert_id: number | null }
 interface TestResult { at?: string; ok: boolean; message: string; detail?: Record<string, unknown>; latency_ms?: number }
-interface KeyState { key_source: "console" | "env" | "none" | "not_needed"; hint: string; key_updated_at: string | null; blocked_hosts: string[]; last_test: TestResult | null }
+interface KeyState { key_source: "console" | "env" | "none" | "not_needed"; hint: string; key_updated_at: string | null; blocked_hosts: string[]; last_test: TestResult | null; key_rejected?: string }
 interface Provider extends KeyState {
   name: string; label: string; kinds: string[]; tier: "free" | "commercial" | "planned"; enabled: boolean; about: string; env: string; hosts: string[];
   takes_key: boolean; optional_key: boolean; signup: string; testable: boolean;
@@ -304,6 +304,7 @@ function ProviderList() {
                 <p className="mt-0.5 text-xs text-muted">{p.about}</p>
                 {p.takes_key && <KeyLine item={p} envName={p.env} />}
                 {blocked(p.blocked_hosts)}
+                {p.key_rejected && <p className="mt-2 rounded-md bg-sunken px-3 py-2 text-xs text-warning">Not in use: {p.key_rejected} It is skipped on lookups until a different key is saved or a test passes.</p>}
                 {p.testable && (p.enabled || running[p.name] || p.last_test) && <TestLine state={running[p.name]} last={p.last_test} />}
               </div>
               {p.tier !== "planned" && (

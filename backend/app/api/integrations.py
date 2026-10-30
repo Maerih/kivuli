@@ -14,7 +14,7 @@ from app import crypto
 from app.api.common import iso
 from app.config import get_settings
 from app.db import get_db
-from app.enrich import keys, providers
+from app.enrich import keys, providers, rejected
 from app.intel import provider_store
 from app.models import SEVERITIES, ApiKey, Delivery, Enrichment, Integration, Ioc, ProviderKey, User, utcnow
 from app.notify.integrations import KINDS, URL_IS_SECRET
@@ -193,7 +193,8 @@ def provider_status(db: Session = Depends(get_db), user: User = Depends(viewer))
                     "enabled": p.tier != "planned" and (not p.takes_key or p.optional_key or has_key),
                     "blocked_hosts": [h for h in p.hosts if h not in allowed] if p.tier != "planned" else [],
                     # A test result describes a key; once that key is gone it describes nothing.
-                    "last_test": _last_test(row) if not p.takes_key or p.optional_key or has_key else None, **state})
+                    "last_test": _last_test(row) if not p.takes_key or p.optional_key or has_key else None,
+                    "key_rejected": reported.get(p.name, {}).get("key_rejected", "") if has_key else "", **state})
     row = rows.get("anthropic")
     state = _key_state(row, ai_reported.get("key_source", ""), True, is_admin)
     ai = {"enabled": state["key_source"] in ("console", "env"), "model": (row.config or {}).get("model") if row and row.config else None,
@@ -305,7 +306,11 @@ def indicator_enrichment(ioc_id: int, db: Session = Depends(get_db), user: User 
         raise HTTPException(404, "Indicator not found")
     rows = db.scalars(select(Enrichment).where(Enrichment.subject_type == ioc.type, Enrichment.subject == ioc.value).order_by(Enrichment.provider)).all()
     labels = {p.name: p.label for p in providers.PROVIDERS}
-    return {"tags": ioc.tags, "feeds": ioc.feeds, "benign": ioc.benign, "enrichable": ioc.type in ("ip", "domain", "url", "hash"),
+    skipped = rejected.all_rejections()
+    rows = [r for r in rows if r.ok or r.provider not in skipped]  # stale "key rejected" rows; reported once below instead
+    return {"key_rejected": [{"provider": n, "label": labels.get(n, n), "message": m} for n, m in skipped.items()
+                             if n in providers.BY_NAME and ioc.type in providers.BY_NAME[n].kinds],
+            "tags": ioc.tags, "feeds": ioc.feeds, "benign": ioc.benign, "enrichable": ioc.type in ("ip", "domain", "url", "hash"),
             "results": [{"provider": r.provider, "label": labels.get(r.provider, r.provider), "fetched_at": iso(r.fetched_at), "ok": r.ok,
                          "verdict": r.verdict, "score": r.score, "summary": r.summary, "error": r.error} for r in rows]}
 

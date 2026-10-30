@@ -352,3 +352,42 @@ def test_wayback_snapshot_parser():
     assert providers.parse_wayback(200, [["urlkey", "timestamp"]])["summary"].get("note")
     names = {p["name"]: p for p in providers.catalogue()}
     assert names["wayback"]["enabled"] and names["wayback"]["tier"] == "free" and "url" in names["wayback"]["kinds"]
+
+
+class _FakeRedis:
+    def __init__(self):
+        self.d = {}
+
+    def set(self, k, v, ex=None):
+        self.d[k] = v
+
+    def get(self, k):
+        return self.d.get(k)
+
+    def delete(self, k):
+        self.d.pop(k, None)
+
+    def scan_iter(self, pattern):
+        prefix = pattern.rstrip("*")
+        return [k for k in list(self.d) if k.startswith(prefix)]
+
+
+def test_rejected_key_is_skipped_until_it_changes(monkeypatch):
+    from app.enrich import keys, providers, rejected
+
+    monkeypatch.setattr(rejected, "_redis", _FakeRedis())
+    current = {"shodan": "old-key"}
+    monkeypatch.setattr(keys, "get", lambda name: current.get(name, ""))
+    shodan = providers.BY_NAME["shodan"]
+
+    assert shodan in providers.for_kind("ip")
+    rejected.mark("shodan", "old-key", "Shodan rejected the API key (HTTP 401).")
+    assert shodan.key_rejected() and shodan not in providers.for_kind("ip")
+    assert providers.BY_NAME["internetdb"] in providers.for_kind("ip")  # the free providers keep answering
+    assert rejected.all_rejections() == {"shodan": "Shodan rejected the API key (HTTP 401)."}
+    assert "old-key" not in str(rejected._redis.d)  # only a fingerprint is kept
+
+    current["shodan"] = "new-key"  # a replaced key is used again straight away
+    assert not shodan.key_rejected() and shodan in providers.for_kind("ip")
+    rejected.clear("shodan")
+    assert rejected.all_rejections() == {}
