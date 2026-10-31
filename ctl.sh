@@ -205,7 +205,7 @@ app_url() {
 	local domain
 	domain="$(env_get KIVULI_DOMAIN || true)"
 	case ",$(env_get COMPOSE_PROFILES || true),$(env_get KIVULI_PROXY || true)," in
-		*,https,* | *,nginx,* | *,apache,*) [ -n "$domain" ] && { echo "https://$domain"; return; } ;;
+		*,https,* | *,nginx,* | *,apache,* | *,caddyhost,*) [ -n "$domain" ] && { echo "https://$domain"; return; } ;;
 	esac
 	echo "http://localhost:$(env_get WEB_PORT || true)"
 }
@@ -406,8 +406,8 @@ UNIT
 		case "${1:-}" in
 			on)
 				proxy="$(env_get KIVULI_PROXY || true)"
-				if [ "$proxy" = "nginx" ]; then
-					# Behind the server's own nginx (install.sh wrote its /shell gate): publish the shell on 127.0.0.1 for it.
+				if [ "$proxy" = "nginx" ] || [ "$proxy" = "caddyhost" ]; then
+					# Behind the server's own nginx or Caddy (install.sh wrote its /shell gate): publish the shell on 127.0.0.1 for it.
 					case ":$(env_get COMPOSE_FILE || true):" in *:docker-compose.shell-local.yml:*) ;; *)
 						env_set COMPOSE_FILE "$(env_get COMPOSE_FILE | sed 's/^$/docker-compose.yml/'):docker-compose.shell-local.yml" ;; esac
 				else

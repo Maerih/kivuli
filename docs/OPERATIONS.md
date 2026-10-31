@@ -46,7 +46,14 @@ entirely in Docker.
 
 ## 2. Install on a server: install.sh
 
-The recommended way. As root:
+The recommended way is one line. It downloads Kivuli into `/opt/kivuli` (or
+updates it if it is already there) and runs the installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Maerih/kivuli/main/install.sh | sudo bash -s -- --domain kivuli.example.org --email you@example.org
+```
+
+Or from a checkout. As root:
 
 ```bash
 git clone https://github.com/Maerih/kivuli.git /opt/kivuli && cd /opt/kivuli
@@ -86,7 +93,12 @@ What it does, in order:
 8. **Runs `./ctl.sh doctor`** and prints the address and where the admin
    password is.
 
-Options: `--dir /opt/kivuli` (where to install), `--yes` (do not ask),
+On a server with less than 12 GB of RAM it sizes Kivuli down (search 512 MB,
+3 crawler and 2 pipeline workers, one browser at a time) so that other
+applications keep their memory; raise them later with `./ctl.sh set`.
+
+Options: `--dir /opt/kivuli` (where to install), `--yes` (do not ask; needed
+when there is no terminal to ask on),
 `--no-autostart`, `--repo URL`. Running it again is safe: it keeps the ports
 and secrets it chose before and rewrites only its own site file.
 
@@ -134,6 +146,7 @@ internet ──443──> nginx ──┬─ bloody.example.org ──> your exi
 | What owns 80/443 | What install.sh does |
 |---|---|
 | Nothing | Starts Kivuli's own HTTPS (Caddy) with a Let's Encrypt certificate |
+| Caddy as a system service | Adds **one** site file, `/etc/caddy/kivuli/<domain>.caddy`, and one `import` line to `/etc/caddy/Caddyfile` (backed up first as `Caddyfile.before-kivuli-<date>`), validates the whole config, reloads, and waits for HTTPS to answer; Caddy gets the certificate itself. If validation fails, the Caddyfile is put back exactly as it was. A site you already added by hand for the domain, pointing at Kivuli, is kept. The server shell's gate is included |
 | nginx | Adds **one** site file, `/etc/nginx/sites-available/kivuli-<domain>.conf` (or `conf.d/`), tests it with `nginx -t`, reloads, and gets the certificate with `certbot --nginx`. The server shell's gate is included |
 | Apache | Adds **one** site, `kivuli-<domain>.conf`, tests it with `apachectl configtest`, reloads, and gets the certificate with `certbot --apache` |
 | Traefik, Caddy, a Docker container, anything else | Changes nothing; starts Kivuli on `127.0.0.1:28941` and prints what to add to that proxy |
@@ -336,6 +349,8 @@ available. `./ctl.sh shell off` removes it.
 
 | Symptom | Likely cause and fix |
 |---|---|
+| Browser: `SSL_ERROR_INTERNAL_ERROR_ALERT` (or "secure connection failed") | The web server on 80/443 has no site for Kivuli's domain yet. Run the installer again (it now configures a system Caddy too), or add the site yourself ([section 4](#4-beside-other-websites-on-the-same-server)) |
+| Browser cannot reach `:28941` | Expected: the console listens on 127.0.0.1 only. Use `https://<domain>`, or an SSH tunnel: `ssh -L 28941:127.0.0.1:28941 root@server` then http://localhost:28941 |
 | install.sh stops: domain does not resolve | Add the DNS A record for the domain pointing at the server; wait a few minutes; run again |
 | No certificate / HTTPS fails | DNS not pointing here yet, or ports 80/443 closed at the provider's firewall or in ufw (`ufw allow 80,443/tcp`). `./ctl.sh logs https` (Caddy) or `/var/log/letsencrypt/letsencrypt.log` (certbot) |
 | `search` keeps restarting | `sysctl -w vm.max_map_count=262144` and add it to `/etc/sysctl.conf`; or not enough RAM: lower `SEARCH_HEAP` |

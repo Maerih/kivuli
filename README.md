@@ -432,8 +432,15 @@ The full guide (installation, configuration, management, backups, updates,
 troubleshooting, security) is [docs/OPERATIONS.md](docs/OPERATIONS.md); next
 steps are in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-**The easy way: `install.sh`.** It looks at the server first and works around
-what is already there, so other websites keep running untouched:
+**The easy way: one line.** It downloads Kivuli into `/opt/kivuli` (or updates
+it), looks at the server first and works around what is already there, so
+other websites, bots and services keep running untouched:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Maerih/kivuli/main/install.sh | sudo bash -s -- --domain kivuli.example.org --email you@example.org
+```
+
+Add `--check` to only look. The same from a checkout:
 
 ```
 git clone https://github.com/Maerih/kivuli.git /opt/kivuli && cd /opt/kivuli
@@ -448,6 +455,7 @@ this server, then picks how to serve Kivuli:
 |---|---|
 | nothing | Kivuli's own HTTPS (Caddy, Let's Encrypt) |
 | nginx | adds one site file for Kivuli's domain, gets its certificate with certbot; other sites untouched (the server shell works here too) |
+| Caddy as a system service | adds one site file, `/etc/caddy/kivuli/<domain>.caddy`, and one `import` line to the Caddyfile (backed up first); Caddy validates before reloading and gets the certificate itself; if validation fails the Caddyfile is put back |
 | Apache | adds one site file for Kivuli's domain, gets its certificate with certbot; other sites untouched |
 | anything else (Traefik, Caddy, a Docker container) | leaves it alone and prints what to add to it |
 

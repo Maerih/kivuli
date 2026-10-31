@@ -49,7 +49,9 @@ die() { echo "${R}Error:${N} $*" >&2; exit 1; }
 ask() {
 	[ "$YES" = 1 ] && return 0
 	local answer
-	read -r -p "$1 [y/N] " answer
+	# From the terminal, so this also works when the script itself arrives on stdin (curl ... | sudo bash).
+	[ -r /dev/tty ] || die "No terminal to ask on: add --yes to go ahead without asking."
+	read -r -p "$1 [y/N] " answer </dev/tty
 	[ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$answer" = "yes" ]
 }
 
@@ -61,7 +63,7 @@ if [ "$CHECK" = 0 ]; then
 	[ -n "$EMAIL" ] && echo "$EMAIL" | grep -q '@' || die "Give an email for the certificate and the first admin: --email you@example.org"
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" 2>/dev/null && pwd || echo /nonexistent)"
 if [ -z "$DIR" ]; then
 	if [ -x "$SCRIPT_DIR/ctl.sh" ]; then DIR="$SCRIPT_DIR"; else DIR="/opt/kivuli"; fi
 fi
@@ -93,6 +95,11 @@ say "Looking at this server"
 ok "System: ${PRETTY_NAME:-unknown} on $(uname -m), $(nproc) CPU, $(free -g | awk '/^Mem:/ { print $2 }') GB RAM"
 mem_gb="$(free -g | awk '/^Mem:/ { print $2 }')"
 [ "$mem_gb" -ge 7 ] || warn "Kivuli runs best with 8 GB of RAM or more (search and the headless browser are the heavy parts). It will run, but slower."
+SHARED_SIZING=0
+if [ "$mem_gb" -lt 12 ]; then
+	SHARED_SIZING=1
+	ok "Under 12 GB of RAM: Kivuli will be sized down (search 512 MB, fewer workers) to leave room for other applications"
+fi
 parent="$(dirname "$DIR")"; [ -d "$parent" ] || parent=/
 disk_gb="$(df -BG --output=avail "$parent" | tail -1 | tr -dc 0-9)"
 [ "$disk_gb" -ge 40 ] && ok "Disk: ${disk_gb} GB free" || warn "Only ${disk_gb} GB free on $parent; collection grows over time, 80 GB is comfortable."
@@ -104,7 +111,9 @@ case "$o80$o443" in
 	*nginx*) FRONT=nginx FRONT_NAME="nginx" ;;
 	*apache2* | *httpd*) FRONT=apache FRONT_NAME="Apache" ;;
 	*docker-proxy*) FRONT=external FRONT_NAME="a Docker container" ;;
-	*caddy*) FRONT=external FRONT_NAME="Caddy (system)" ;;
+	*caddy*)
+		if systemctl is-active -q caddy 2>/dev/null && [ -f /etc/caddy/Caddyfile ]; then FRONT=caddyhost FRONT_NAME="Caddy (system service)"
+		else FRONT=external FRONT_NAME="Caddy"; fi ;;
 	*traefik*) FRONT=external FRONT_NAME="Traefik" ;;
 	*) FRONT=external FRONT_NAME="${o80:-$o443}" ;;
 esac
@@ -151,6 +160,33 @@ MAILPIT_PORT="$(pick "$MAILPIT_PORT" 28942 "$WEB_PORT")"
 SHELL_PORT="$(pick "$SHELL_PORT" 28943 "$MAILPIT_PORT")"
 ok "Kivuli's ports on 127.0.0.1: console $WEB_PORT, test mail inbox $MAILPIT_PORT, server shell $SHELL_PORT"
 
+# The system Caddy: which sites it serves, and whether one already answers for Kivuli's domain.
+CADDY_SITE="/etc/caddy/kivuli/$DOMAIN.caddy" caddy_ready=0
+caddy_hosts() { # "host upstream" lines from the running Caddyfile
+	caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null | python3 -c '
+import json, sys
+def walk(routes, hosts=()):
+    for r in routes or []:
+        hs = [h for m in r.get("match", []) for h in m.get("host", [])] or list(hosts)
+        for h in r.get("handle", []):
+            if h.get("handler") == "reverse_proxy":
+                for u in h.get("upstreams", []): [print(x, u.get("dial", "")) for x in hs]
+            if h.get("handler") == "subroute": walk(h.get("routes"), hs)
+cfg = json.load(sys.stdin)
+for srv in cfg.get("apps", {}).get("http", {}).get("servers", {}).values(): walk(srv.get("routes"))
+' 2>/dev/null || true
+}
+if [ "$FRONT" = caddyhost ]; then
+	served="$(caddy_hosts | awk '{ print $1 }' | sort -u | tr '\n' ' ')"
+	[ -n "$served" ] && ok "Caddy already serves: $served"
+	ours="$(caddy_hosts | awk -v d="$DOMAIN" '$1 == d { print $2 }' | sort -u | tr '\n' ' ')"
+	if [ -n "$ours" ]; then
+		if [ -f "$CADDY_SITE" ]; then ok "$DOMAIN is Kivuli's own Caddy site from an earlier install: it will be rewritten"
+		elif echo " $ours " | grep -q " 127.0.0.1:$WEB_PORT \| localhost:$WEB_PORT "; then ok "Caddy already sends $DOMAIN to Kivuli ($ours): kept as it is"; caddy_ready=1
+		else bad "Caddy already sends $DOMAIN somewhere else ($ours). Remove that site or pick another domain."; taken=1; fi
+	fi
+fi
+
 # DNS: the domain must point here before a certificate can be issued.
 dns_ok=1
 resolved="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{ print $1 }' | sort -u | tr '\n' ' ' || true)"
@@ -179,6 +215,8 @@ case "$FRONT" in
 	caddy) say "Plan: Kivuli's own HTTPS for https://$DOMAIN (Caddy on 80/443, certificate from Let's Encrypt)" ;;
 	nginx) say "Plan: add one nginx site for $DOMAIN -> 127.0.0.1:$WEB_PORT, certificate with certbot; other nginx sites untouched" ;;
 	apache) say "Plan: add one Apache site for $DOMAIN -> 127.0.0.1:$WEB_PORT, certificate with certbot; other sites untouched" ;;
+	caddyhost) [ "$caddy_ready" = 1 ] && say "Plan: start Kivuli on 127.0.0.1:$WEB_PORT behind the Caddy site already there for $DOMAIN" \
+		|| say "Plan: add one Caddy site for $DOMAIN -> 127.0.0.1:$WEB_PORT in $CADDY_SITE (Caddy gets its certificate); other sites untouched" ;;
 	external) say "Plan: start Kivuli on 127.0.0.1:$WEB_PORT and print what to add to $FRONT_NAME (it is not changed)" ;;
 esac
 say "Install into: $DIR"
@@ -216,7 +254,11 @@ fi
 
 say "Getting Kivuli"
 if [ -x "$DIR/ctl.sh" ]; then
-	ok "Using the code in $DIR"
+	if [ -d "$DIR/.git" ] && [ -z "$(git -C "$DIR" status --porcelain --untracked-files=no)" ]; then
+		git -C "$DIR" pull -q --ff-only && ok "Updated the code in $DIR" || warn "Could not update $DIR from git; using it as it is"
+	else
+		ok "Using the code in $DIR"
+	fi
 else
 	git clone "$REPO" "$DIR"
 	ok "Cloned into $DIR"
@@ -230,6 +272,10 @@ grep -q '^BOOTSTRAP_ADMIN_EMAIL=admin@kivuli.local$' .env && first_install=1
 ./ctl.sh set WEB_PORT="$WEB_PORT" MAILPIT_PORT="$MAILPIT_PORT" SHELL_PORT="$SHELL_PORT" WEB_BIND=127.0.0.1 \
 	KIVULI_DOMAIN="$DOMAIN" ACME_EMAIL="$EMAIL" PUBLIC_URL="https://$DOMAIN" COOKIE_SECURE=true KIVULI_PROXY="$FRONT"
 [ "$first_install" = 1 ] && ./ctl.sh set BOOTSTRAP_ADMIN_EMAIL="$EMAIL"
+if [ "$SHARED_SIZING" = 1 ]; then
+	./ctl.sh set SEARCH_HEAP=512m CRAWLER_CONCURRENCY=3 PIPELINE_CONCURRENCY=2 RENDER_CONCURRENCY=1
+	ok "Sized for a shared server (change later with ./ctl.sh set SEARCH_HEAP=... CRAWLER_CONCURRENCY=...)"
+fi
 ok "Settings written to $DIR/.env (secrets generated on first install)"
 
 say "Building and starting Kivuli (the first build takes several minutes)"
@@ -335,6 +381,59 @@ APACHE
 		certbot --apache -d "$DOMAIN" -m "$EMAIL" --agree-tos --non-interactive --redirect --keep-until-expiring
 		ok "HTTPS on https://$DOMAIN (certbot renews it automatically)"
 		;;
+	caddyhost)
+		if [ "$caddy_ready" = 1 ]; then
+			ok "Caddy already serves $DOMAIN for Kivuli; it was not changed"
+		else
+			say "Adding the Caddy site for $DOMAIN"
+			# Kivuli's site lives in its own file; the Caddyfile only gains one import line. Everything is
+			# validated before Caddy reloads, and put back exactly as it was if validation fails.
+			stamp="$(date +%Y%m%d-%H%M%S)"
+			cp -p /etc/caddy/Caddyfile "/etc/caddy/Caddyfile.before-kivuli-$stamp"
+			mkdir -p /etc/caddy/kivuli
+			cat >"$CADDY_SITE" <<CADDY
+# Kivuli ($DOMAIN) - written by install.sh. Only this site; other sites are untouched.
+# Remove: rm $CADDY_SITE && systemctl reload caddy   (and the import line in /etc/caddy/Caddyfile)
+$DOMAIN {
+	encode zstd gzip
+	# The server shell (./ctl.sh shell on): every request first asks Kivuli, which lets through only
+	# an administrator with two-step sign-in who opened it in the console.
+	handle /shell* {
+		forward_auth 127.0.0.1:$WEB_PORT {
+			uri /api/shell/authorize
+			header_up -Connection
+			header_up -Upgrade
+		}
+		reverse_proxy 127.0.0.1:$SHELL_PORT
+	}
+	handle {
+		reverse_proxy 127.0.0.1:$WEB_PORT
+	}
+}
+CADDY
+			added_import=0
+			if ! grep -q '^import /etc/caddy/kivuli/\*.caddy' /etc/caddy/Caddyfile; then
+				printf '\n# Kivuli sites (install.sh)\nimport /etc/caddy/kivuli/*.caddy\n' >>/etc/caddy/Caddyfile
+				added_import=1
+			fi
+			if ! caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/tmp/kivuli-caddy-validate 2>&1; then
+				cp -p "/etc/caddy/Caddyfile.before-kivuli-$stamp" /etc/caddy/Caddyfile
+				rm -f "$CADDY_SITE"
+				tail -5 /tmp/kivuli-caddy-validate >&2
+				die "Caddy rejected the new site. Your Caddyfile was put back exactly as it was; nothing else changed."
+			fi
+			systemctl reload caddy
+			ok "Site added: $CADDY_SITE"
+			[ "$added_import" = 1 ] && ok "One import line added to /etc/caddy/Caddyfile (backup: /etc/caddy/Caddyfile.before-kivuli-$stamp)"
+		fi
+		say "Waiting for https://$DOMAIN (Caddy gets the certificate on its own; usually under a minute)"
+		for _ in $(seq 1 24); do
+			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN/login" || true)"
+			[ "$code" = 200 ] && break
+			sleep 5
+		done
+		[ "$code" = 200 ] && ok "https://$DOMAIN answers" || warn "https://$DOMAIN is not answering yet ($code). Check: journalctl -u caddy --since '10 min ago' | tail -30"
+		;;
 	external)
 		say "Kivuli is running on 127.0.0.1:$WEB_PORT. Point $FRONT_NAME at it for $DOMAIN, for example:"
 		cat <<EOF
@@ -366,5 +465,6 @@ echo "  Kivuli uses:  127.0.0.1:$WEB_PORT (console), :$MAILPIT_PORT (test inbox)
 case "$FRONT" in
 	caddy) echo "                and ports 80/443 for its own HTTPS." ;;
 	nginx | apache) echo "                and one new $FRONT_NAME site file for $DOMAIN; no other site was changed." ;;
+	caddyhost) echo "                and one Caddy site file for $DOMAIN; no other site was changed." ;;
 	external) echo "                $FRONT_NAME was not changed." ;;
 esac
