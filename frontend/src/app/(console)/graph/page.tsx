@@ -87,8 +87,8 @@ function Canvas({ graph, onExpand }: { graph: Graph; onExpand: (id: string) => v
   const viewBox = `${bounds.x + view.x + (bounds.w - w) / 2} ${bounds.y + view.y + (bounds.h - h) / 2} ${w} ${h}`;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
-      <Card className="relative overflow-hidden">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
+      <Card className="relative min-w-0 overflow-hidden">
         <div className="absolute right-3 top-3 z-10 flex flex-col gap-1">
           <Button size="sm" aria-label="Zoom in" onClick={() => zoom(1.25)}><Plus className="h-3.5 w-3.5" /></Button>
           <Button size="sm" aria-label="Zoom out" onClick={() => zoom(0.8)}><Minus className="h-3.5 w-3.5" /></Button>
