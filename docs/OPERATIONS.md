@@ -338,6 +338,13 @@ available. `./ctl.sh shell off` removes it.
 
 - `./ctl.sh doctor` for a quick health check; it exits non-zero when
   something fails, so it can run from cron or a monitoring agent.
+- **Health alerts.** With `./ctl.sh autostart on`, `./ctl.sh doctor --alert`
+  runs every 15 minutes and tells you only when the verdict changes: once
+  when something breaks, once when it recovers. It emails `ALERT_EMAIL_TO`
+  through Kivuli's mail settings, and posts to `OPS_ALERT_WEBHOOK` if set
+  (a Slack incoming webhook, or anything that accepts `{"text": …}`). The
+  webhook is sent from the server itself, so it still arrives when Kivuli is
+  down: set it if you want to hear about a full outage.
 - **System → Health** in the console: Tor status, queue depths, provider
   status, collection health.
 - **Collection & crawls:** which sources are failing and why.

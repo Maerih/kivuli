@@ -56,7 +56,6 @@ Most valuable view in the source explorer.
 | Single sign-on (OIDC) | For a team with an identity provider |
 | A second crawler and a load test | To know the ceiling before collection grows |
 | Server shell behind Apache | Today it needs Caddy or nginx in front |
-| Alerting on `./ctl.sh doctor` | Run it from cron or a monitoring agent and alert when it fails |
 
 ## Will not be built
 

@@ -3,14 +3,16 @@ import logging
 import time
 
 import redis
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy.orm import Session
 
 from app.api import admin, ai, attack, auth, cases, chain, exposure, findings, integrations, intel, reports, research, rules, paths, patterns, search, shell, sources, taxii, timeline, tools, watch
 from app.config import get_settings
 from app.models import User
-from app.security import CSRF_HEADER, client_ip, viewer
+from app.db import get_db
+from app.security import CSRF_HEADER, client_ip, current_user, viewer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("kivuli.api")
@@ -61,7 +63,12 @@ def openapi_schema(user: User = Depends(viewer)):
 
 
 @app.get("/api/docs", include_in_schema=False)
-def api_docs(user: User = Depends(viewer)):
+def api_docs(request: Request, db: Session = Depends(get_db)):
+    # A page people open in a browser: send them to sign in and back, rather than show a bare 401.
+    try:
+        current_user(request, db)
+    except HTTPException:
+        return RedirectResponse("/login?next=/api/docs", status_code=303)
     return get_swagger_ui_html(openapi_url="/api/openapi.json", title=f"{settings.app_name} API")
 
 
