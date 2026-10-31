@@ -19,7 +19,13 @@ DAEMON_RUNTIME_DIR="$HOST_RUNTIME_DIR/kivuli"
 # no installation. Chosen automatically; force one with KIVULI_DOCKER=system|rootless.
 MODE="${KIVULI_DOCKER:-}"
 if [ -z "$MODE" ]; then
-	if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then MODE=system; else MODE=rootless; fi
+	if [ -x "$RT/bin/dockerd-rootless.sh" ]; then
+		MODE=rootless # this folder already runs its own Docker: keep it, even if a system Docker appears later
+	elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+		MODE=system
+	else
+		MODE=rootless
+	fi
 fi
 if [ "$MODE" = rootless ]; then
 	export PATH="$RT/bin:$PATH"
