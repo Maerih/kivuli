@@ -99,9 +99,11 @@ def store_provider_test(*, name: str, ok: bool, message: str = "", detail: dict 
 @celery_app.task(name="pipeline.sync_provider_keys")
 def sync_provider_keys():
     """Rewrite the encrypted key mirror the enricher reads, in case Redis lost it."""
+    from app import runtime
     from app.intel import provider_store
 
     with session_scope() as db:
+        runtime.mirror(db)  # and the console settings every container applies
         return provider_store.publish(db)
 
 

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api import admin, ai, attack, auth, cases, chain, exposure, findings, integrations, intel, reports, research, rules, paths, patterns, search, shell, sources, taxii, timeline, tools, watch
+from app import runtime
 from app.config import get_settings
 from app.models import User
 from app.db import get_db
@@ -29,6 +30,7 @@ class _Skip(Exception):
 
 @app.middleware("http")
 async def guard(request: Request, call_next):
+    runtime.sync()  # console settings, within seconds of a change
     path = request.url.path
     if path.startswith("/api") and path != "/api/healthz":
         # A browser cannot add a custom header to a cross-site form post, so requiring

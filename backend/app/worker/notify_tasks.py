@@ -77,6 +77,10 @@ def dispatch_alerts():
 
 @celery_app.task(name="notify.send_digest")
 def send_digest():
+    """Runs hourly; sends once a day, at the hour set in the console (or DIGEST_HOUR_UTC)."""
+    now = utcnow()
+    if now.hour != settings.digest_hour_utc or not _redis.set(f"kivuli:digest:sent:{now:%Y-%m-%d}", "1", nx=True, ex=2 * 86400):
+        return "not now"
     with session_scope() as db:
         return _deliver(db, "digest", "digest", since=utcnow() - timedelta(days=2))
 

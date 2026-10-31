@@ -139,3 +139,29 @@ def test_spelling_variants_of_names_compare_equal():
     assert _compact("The Gentlemen") == _compact("Thegentlemen") == _compact("the-gentlemen")
     assert _compact("Arcus Media") == _compact("ARCUS_MEDIA")
     assert _compact("Play") != _compact("Plays") and len(_compact("Play")) < _COMPACT_MIN  # short names never match loosely
+
+
+def test_console_settings_validation_and_overlay():
+    from types import SimpleNamespace
+
+    import pytest
+
+    from app import runtime
+
+    assert runtime.validate("smtp_port", 587) == 587
+    assert runtime.validate("smtp_port", "") is None  # back to .env
+    assert runtime.validate("focus_countries", " ke, ug ") == "KE,UG"
+    assert runtime.validate("alert_email_to", "a@x.org, b@y.org") == "a@x.org,b@y.org"
+    for name, bad in [("smtp_port", 70000), ("smtp_tls", "maybe"), ("focus_countries", "Kenya"), ("alert_email_to", "not-an-email"),
+                      ("require_mfa", "yes"), ("intelowl_url", "ftp://x"), ("egress_allow_hosts", "evil.example")]:
+        with pytest.raises(ValueError):
+            runtime.validate(name, bad)
+
+    # Overrides land on the settings object; clearing one restores the .env value.
+    fake = SimpleNamespace(**{name: f"env-{name}" for name in runtime.FIELDS})
+    runtime._baseline.clear()
+    runtime.apply({"smtp_host": "smtp.example.org", "smtp_port": 465}, fake)
+    assert fake.smtp_host == "smtp.example.org" and fake.smtp_port == 465 and fake.smtp_from == "env-smtp_from"
+    runtime.apply({}, fake)
+    assert fake.smtp_host == "env-smtp_host" and fake.smtp_port == "env-smtp_port"
+    runtime._baseline.clear()

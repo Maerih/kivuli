@@ -53,7 +53,8 @@ celery_app.conf.update(
         "discover-sources": {"task": "pipeline.discover_sources", "schedule": crontab(hour="3", minute="20")},
         "tor-check": {"task": "crawl.tor_check", "schedule": 300.0},
         "dispatch-alert-email": {"task": "notify.dispatch_alerts", "schedule": 60.0},
-        "daily-digest": {"task": "notify.send_digest", "schedule": crontab(hour=str(settings.digest_hour_utc), minute="0")},
+        # Hourly: the task itself sends at the configured hour, which can be changed in the console.
+        "daily-digest": {"task": "notify.send_digest", "schedule": crontab(minute="0")},
         "dispatch-integrations": {"task": "notify.dispatch_integrations", "schedule": 60.0},
         "evaluate-rules": {"task": "pipeline.evaluate_rules", "schedule": 300.0},
         "refresh-vulnerabilities": {"task": "pipeline.refresh_vulnerabilities", "schedule": 3600.0},
@@ -67,3 +68,14 @@ celery_app.conf.update(
 def enqueue(task: str, /, *, countdown: float | None = None, **kwargs) -> None:
     """Queue a task by name. The task name is positional-only so that a task may itself take an argument called ``name``."""
     celery_app.send_task(task, kwargs=kwargs, countdown=countdown)
+
+
+# Console settings (app.runtime) apply in every worker before each task, within seconds of a change.
+from celery.signals import task_prerun  # noqa: E402
+
+
+@task_prerun.connect
+def _apply_console_settings(**_kwargs):
+    from app import runtime
+
+    runtime.sync()

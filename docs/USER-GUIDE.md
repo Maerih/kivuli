@@ -669,6 +669,11 @@ brief* opens a printable summary.
 - *Alert destinations* (admins): send alerts to a signed webhook, Slack, Teams,
   Splunk, Jira or ServiceNow. Adding one, or pressing **Test**, sends a test
   alert and shows whether it was accepted.
+- *Settings* (System page, administrators): email delivery (SMTP), focus
+  countries and sectors, requiring two-step sign-in, collection pacing and
+  IntelOwl, changed here instead of `.env` and in effect within seconds.
+  Each shows whether it comes from `.env` or was set here; *Use .env* goes
+  back.
 - *Enrichment and AI*: every provider with whether it is on, where its key comes
   from, and its last test. **Set key** saves a key and immediately makes a real
   request to the provider to confirm it. **Test** repeats that at any time.

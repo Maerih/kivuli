@@ -103,7 +103,7 @@ function EmailTab() {
         </Card>
         {local && (
           <div className="rounded-md border border-line bg-warning-soft px-3 py-2.5 text-sm">
-            Mail is going to the bundled test inbox, not to real mailboxes. Open it at <a className="link" href={`http://localhost:${h.email.test_inbox_port ?? 28942}`} target="_blank" rel="noopener">localhost:{h.email.test_inbox_port ?? 28942}</a> on the server (through an SSH tunnel from elsewhere). To deliver for real, set SMTP_HOST, SMTP_PORT, SMTP_TLS, SMTP_USERNAME and SMTP_PASSWORD in <span className="font-mono">.env</span> and restart.
+            Mail is going to the bundled test inbox, not to real mailboxes. Open it at <a className="link" href={`http://localhost:${h.email.test_inbox_port ?? 28942}`} target="_blank" rel="noopener">localhost:{h.email.test_inbox_port ?? 28942}</a> on the server (through an SSH tunnel from elsewhere). To deliver for real, set your mail server under <em>Settings → Email delivery</em>; it takes effect within seconds.
           </div>
         )}
         {isAdmin && (
@@ -296,11 +296,77 @@ function AccountTab() {
   );
 }
 
+interface SettingField {
+  name: string; group: string; group_label: string; label: string; kind: string; help: string; low: number; high: number; choices: string[];
+  env: string | number | boolean | null; console: string | number | boolean | null; source: "env" | "console";
+}
+
+/** Settings an administrator changes here instead of .env. A console value wins; "Use .env" goes back. */
+function SettingsTab() {
+  const { data, error, mutate } = useApi<{ fields: SettingField[]; groups: Record<string, string>; env_only: string[] }>("/system/settings");
+  const [draft, setDraft] = useState<Record<string, unknown>>({});
+  const { busy, run } = useAction();
+  if (error) return <ErrorNote error={error} />;
+  if (!data) return <Spinner />;
+  const value = (f: SettingField) => (f.name in draft ? draft[f.name] : f.kind === "secret" ? "" : f.source === "console" ? f.console : f.env);
+  const save = (names: string[]) => run(async () => {
+    const values = Object.fromEntries(names.filter((n) => n in draft).map((n) => [n, draft[n]]));
+    if (!Object.keys(values).length) return;
+    const r = await api<{ fields: SettingField[] }>("/system/settings", { method: "PUT", body: { values } });
+    await mutate({ ...data, fields: r.fields }, { revalidate: false });
+    setDraft((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !names.includes(k))));
+  }, "Saved; in effect everywhere within seconds");
+  const reset = (name: string) => run(async () => {
+    const r = await api<{ fields: SettingField[] }>("/system/settings", { method: "PUT", body: { values: { [name]: null } } });
+    await mutate({ ...data, fields: r.fields }, { revalidate: false });
+    setDraft((d) => { const { [name]: _, ...rest } = d; return rest; });
+  }, "Back to the .env value");
+  const set = (name: string, v: unknown) => setDraft((d) => ({ ...d, [name]: v }));
+  const input = (f: SettingField) => {
+    const v = value(f);
+    if (f.kind === "bool") return <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-[var(--accent)]" checked={Boolean(v)} onChange={(e) => set(f.name, e.target.checked)} />{v ? "On" : "Off"}</label>;
+    if (f.kind === "choice") return <select className="field" value={String(v ?? "")} onChange={(e) => set(f.name, e.target.value)}>{f.choices.map((c) => <option key={c} value={c}>{c}</option>)}</select>;
+    if (f.kind === "int") return <input type="number" min={f.low} max={f.high} className="field" value={v === null || v === undefined ? "" : String(v)} onChange={(e) => set(f.name, e.target.value === "" ? "" : Number(e.target.value))} />;
+    if (f.kind === "secret") return <input type="password" autoComplete="new-password" className="field" placeholder={f.source === "console" || f.env ? "Set; type to replace" : "Not set"} value={String(v ?? "")} onChange={(e) => set(f.name, e.target.value)} />;
+    return <input className="field" value={String(v ?? "")} onChange={(e) => set(f.name, e.target.value)} />;
+  };
+  const groups = Object.keys(data.groups);
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-2">Changes take effect in every part of Kivuli within about ten seconds, without a restart. A value set here overrides <span className="font-mono">.env</span>; <em>Use .env</em> removes the override.</p>
+      {groups.map((g) => {
+        const fields = data.fields.filter((f) => f.group === g);
+        const dirty = fields.some((f) => f.name in draft);
+        return (
+          <Card key={g}>
+            <CardHeader title={data.groups[g]} action={<Button size="sm" variant={dirty ? "primary" : undefined} busy={busy} disabled={!dirty} onClick={() => save(fields.map((f) => f.name))}>Save</Button>} />
+            <div className="grid gap-x-6 gap-y-4 px-4 py-4 md:grid-cols-2">
+              {fields.map((f) => (
+                <div key={f.name} className="min-w-0">
+                  <Field label={f.label} hint={f.help || undefined}>{input(f)}</Field>
+                  <div className="mt-1 flex items-center gap-2 text-2xs text-muted">
+                    {f.source === "console" ? <><Badge tone="accent">Set here</Badge>{f.kind !== "secret" && <span className="truncate">.env: {String(f.env ?? "—") || "—"}</span>}<button className="text-accent-ink hover:underline" onClick={() => reset(f.name)}>Use .env</button></>
+                      : <span>From .env</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        );
+      })}
+      <Card>
+        <CardHeader title="Still in .env" hint="Infrastructure and secrets, changed on the server with ./ctl.sh set or install.sh" />
+        <ul className="list-disc space-y-1 px-8 py-3 text-sm text-ink-2">{data.env_only.map((x) => <li key={x}>{x}</li>)}</ul>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { isAdmin, canWrite } = useSession();
   const tabs = [
     ...(canWrite ? [{ id: "health", label: "Health" }, { id: "email", label: "Email alerts" }] : []),
-    ...(isAdmin ? [{ id: "users", label: "Users" }, { id: "audit", label: "Audit log" }] : []),
+    ...(isAdmin ? [{ id: "settings", label: "Settings" }, { id: "users", label: "Users" }, { id: "audit", label: "Audit log" }] : []),
     { id: "account", label: "My account" },
   ];
   const { me } = useSession();
@@ -312,6 +378,7 @@ export default function SettingsPage() {
       <div className="mb-4"><Tabs value={tab} onChange={setTab} tabs={tabs} /></div>
       {tab === "health" && <HealthTab />}
       {tab === "email" && <EmailTab />}
+      {tab === "settings" && <SettingsTab />}
       {tab === "users" && <UsersTab />}
       {tab === "audit" && <AuditTab />}
       {tab === "account" && <AccountTab />}

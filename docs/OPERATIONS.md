@@ -190,8 +190,21 @@ container), `127.0.0.1` is the container itself: use the host's address.
 
 ## 6. Configuration (.env)
 
+**Most day-to-day settings are in the console:** System → **Settings**
+(administrators). Email delivery (SMTP server, port, encryption, username,
+password, From, recipients, digest hour), focus countries and sectors,
+requiring two-step sign-in, collection pacing and IntelOwl. A value set there
+overrides `.env` everywhere within about ten seconds, without a restart;
+*Use .env* removes the override. The SMTP password is stored encrypted and
+never shown again. Changes are in the audit log (names only, never values).
+
+What stays in `.env`: ports, domain and HTTPS, secrets, `EGRESS_ALLOW_HOSTS`
+(the application must not widen its own egress), memory and worker counts
+(containers are recreated), and `OPS_ALERT_WEBHOOK` (read by the server
+itself, so it works when Kivuli is down).
+
 All settings live in `/opt/kivuli/.env`, created from `.env.example` with
-generated secrets. Change them with `./ctl.sh set KEY=VALUE` (or an editor),
+generated secrets, and the console's values are layered on top. Change them with `./ctl.sh set KEY=VALUE` (or an editor),
 then `./ctl.sh restart`. Every setting, with its default, is listed in
 [REFERENCE.md](REFERENCE.md); the ones operators change most:
 
@@ -208,7 +221,9 @@ then `./ctl.sh restart`. Every setting, with its default, is listed in
 | Secrets | `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `EVIDENCE_HMAC_KEY`, `SECRETS_KEY`, `PROVIDER_KEYS_KEY`: generated; never change them on a running install, and keep them with your backups |
 
 **Real email.** Out of the box, alerts go to the bundled test inbox
-(`127.0.0.1:28942`). For real delivery, for example:
+(`127.0.0.1:28942`). For real delivery, fill in System → Settings → Email
+delivery and press Save, then System → Email alerts → Send a test message.
+Or in `.env`, for example:
 
 ```bash
 ./ctl.sh set SMTP_HOST=smtp.example.org SMTP_PORT=587 SMTP_TLS=starttls SMTP_USERNAME=alerts@example.org SMTP_PASSWORD='…' SMTP_FROM='Kivuli <alerts@example.org>' ALERT_EMAIL_TO=soc@example.org

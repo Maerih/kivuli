@@ -286,3 +286,36 @@ def metrics(db: Session = Depends(get_db), user: User = Depends(analyst)):
     except redis.RedisError:
         gauge("queue_depth", "Tasks waiting per queue", [])
     return PlainTextResponse("\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
+
+
+# ── Console settings (app.runtime) ──────────────────────────────────────────
+
+@router.get("/system/settings")
+def console_settings(db: Session = Depends(get_db), user: User = Depends(admin)):
+    """Settings an administrator can change here instead of `.env`, with the value in effect and where it comes from."""
+    from app import runtime
+
+    return {"fields": runtime.describe(db), "groups": runtime.GROUPS,
+            "env_only": ["Ports, domain and HTTPS (./ctl.sh https, install.sh)", "Secrets and keys that encrypt stored data",
+                         "EGRESS_ALLOW_HOSTS: the application must not widen its own egress", "Memory and worker counts (containers are recreated)",
+                         "OPS_ALERT_WEBHOOK: read by the server itself, so it works when Kivuli is down"]}
+
+
+class ConsoleSettingsIn(BaseModel):
+    values: dict = Field(default_factory=dict)  # name -> value; null or "" goes back to .env; "__keep__" keeps a secret
+
+
+@router.put("/system/settings")
+def update_console_settings(body: ConsoleSettingsIn, request: Request, db: Session = Depends(get_db), user: User = Depends(admin)):
+    from app import runtime
+
+    if len(body.values) > len(runtime.FIELDS):
+        raise HTTPException(400, "Too many values")
+    try:
+        runtime.save(db, body.values, user.id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    # Names only: values (an SMTP password above all) never go into the audit log.
+    audit(db, request, user, "settings.update", "settings", "runtime", changed=sorted(body.values))
+    db.commit()
+    return {"fields": runtime.describe(db)}

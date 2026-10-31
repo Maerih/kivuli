@@ -23,6 +23,8 @@ All paths are under `/api`. A request is authenticated by the session cookie (co
 | GET | `/shell/status` | admin | Whether the server shell is available to this administrator, and if not, why. |
 | GET | `/system/email-log` | analyst | The last 50 alert emails and whether each was delivered. |
 | GET | `/system/health` | analyst | Health of the database, search index, queues and Tor gateway, crawl activity, email settings, collection policy flags and data-quality figures. |
+| GET | `/system/settings` | admin | Settings an administrator can change here instead of `.env`, with the value in effect and where it comes from. |
+| PUT | `/system/settings` | admin | Update console settings |
 | POST | `/system/test-email` | admin | Queue a test message to one address. |
 | GET | `/users` | admin | Every account with its role, state and whether two-step sign-in is on. |
 | POST | `/users` | admin | Create an account. |
@@ -251,13 +253,13 @@ Every TAXII path also answers without its trailing slash, because reverse proxie
 
 | Method | Path | Role | What it does |
 |---|---|---|---|
-| GET | `/docs` | viewer | Api docs |
+| GET | `/docs` | public | Api docs |
 | GET | `/healthz` | public | Liveness probe for the container. |
 | GET | `/openapi.json` | viewer | Openapi schema |
 | GET | `/metrics` | analyst | Prometheus exposition. Scrape with an API key: Authorization: Bearer <key>. |
 | GET | `/shell/authorize` | public | Asked by Caddy (forward_auth) before every request to /shell. 204 lets it through. |
 
-148 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`, to signed-in users and API keys.
+150 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`, to signed-in users and API keys.
 
 ## Data model
 
@@ -1005,7 +1007,7 @@ The `beat` container fires these; the named worker role runs them.
 | every 600 s | `enrich.status` | enricher |
 | every 60 s | `notify.dispatch_alerts` | notify |
 | every 60 s | `notify.dispatch_integrations` | notify |
-| cron: minute 0, hour 6 UTC | `notify.send_digest` | notify |
+| cron: minute 0, hour * UTC | `notify.send_digest` | notify |
 | every 3600 s | `pipeline.asm_sweep` | pipeline |
 | cron: minute 20, hour 3 UTC | `pipeline.discover_sources` | pipeline |
 | every 300 s | `pipeline.evaluate_rules` | pipeline |

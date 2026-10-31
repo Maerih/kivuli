@@ -148,8 +148,10 @@ def cmd_ops_alert(args) -> None:
     import html
     import sys
 
+    from app import runtime
     from app.notify import mailer
 
+    runtime.sync(force=True)  # the console's mail settings, not only .env
     recipients = get_settings().default_recipients
     if not recipients:
         print("ALERT_EMAIL_TO is empty: nobody to tell", file=sys.stderr)
