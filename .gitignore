@@ -11,3 +11,4 @@ frontend/.npm-offline/*
 !frontend/.npm-offline/.gitkeep
 backups/
 frontend/tsconfig.tsbuildinfo
+.doctor-state

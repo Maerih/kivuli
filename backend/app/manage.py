@@ -6,6 +6,7 @@
     python -m app.manage crawl-all                  queue a crawl of every approved source
     python -m app.manage create-user EMAIL ROLE     prompts for a password
     python -m app.manage test-email ADDRESS         send a test message through the notify worker
+    python -m app.manage ops-alert --subject S      email an operations message (body on stdin) to ALERT_EMAIL_TO
 """
 import argparse
 import getpass
@@ -141,6 +142,23 @@ def cmd_test_email(args) -> None:
     print("queued; see Settings > Email log in the console for the result")
 
 
+def cmd_ops_alert(args) -> None:
+    """Email an operations message (the server's health changed) straight away, without the queue:
+    when something is broken the queue may be part of it. Run in the notify container, which can reach SMTP."""
+    import html
+    import sys
+
+    from app.notify import mailer
+
+    recipients = get_settings().default_recipients
+    if not recipients:
+        print("ALERT_EMAIL_TO is empty: nobody to tell", file=sys.stderr)
+        raise SystemExit(1)
+    body = sys.stdin.read()[:20000]
+    mailer.send(recipients, args.subject, body, f"<pre style='font: 13px/1.4 monospace'>{html.escape(body)}</pre>")
+    print(f"sent to {', '.join(recipients)}")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     parser = argparse.ArgumentParser(prog="manage", description=f"{get_settings().app_name} operator commands")
@@ -157,6 +175,9 @@ def main() -> None:
     test = sub.add_parser("test-email")
     test.add_argument("address")
     test.set_defaults(func=cmd_test_email)
+    ops = sub.add_parser("ops-alert")
+    ops.add_argument("--subject", required=True)
+    ops.set_defaults(func=cmd_ops_alert)
     args = parser.parse_args()
     args.func(args)
 

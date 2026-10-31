@@ -246,7 +246,7 @@ Usage: ./ctl.sh <command>
                      Serve the console over HTTPS with a Let's Encrypt certificate
   https off          Back to the console on 127.0.0.1 only
   shell on|off       Browser SSH terminal to this server for admins (needs HTTPS)
-  doctor             Check the stack: containers, API, Tor, disk, HTTPS
+  doctor [--alert]   Check the stack: containers, API, Tor, disk, HTTPS; --alert tells you when the verdict changes
   stop               Stop the stack and the Docker daemon
   restart            Stop, then start
   status             Show what is running
@@ -358,8 +358,8 @@ case "$cmd" in
 			unit_dir="$HOME/.config/systemd/user" ctl=(systemctl --user) target=default.target after="network-online.target"
 		fi
 		if [ "$1" = "off" ]; then
-			"${ctl[@]}" disable --now kivuli-backup.timer kivuli.service 2>/dev/null || true
-			rm -f "$unit_dir/kivuli.service" "$unit_dir/kivuli-backup.service" "$unit_dir/kivuli-backup.timer"
+			"${ctl[@]}" disable --now kivuli-backup.timer kivuli-health.timer kivuli.service 2>/dev/null || true
+			rm -f "$unit_dir/kivuli.service" "$unit_dir/kivuli-backup.service" "$unit_dir/kivuli-backup.timer" "$unit_dir/kivuli-health.service" "$unit_dir/kivuli-health.timer"
 			"${ctl[@]}" daemon-reload
 			echo "Autostart and daily backups are off."
 			exit 0
@@ -393,6 +393,27 @@ Environment=KIVULI_DOCKER=$MODE
 WorkingDirectory=$ROOT
 ExecStart=$ROOT/ctl.sh backup --keep 14
 UNIT
+		cat >"$unit_dir/kivuli-health.service" <<UNIT
+[Unit]
+Description=Kivuli health check (tells you when it breaks and when it recovers)
+
+[Service]
+Type=oneshot
+Environment=KIVULI_DOCKER=$MODE
+WorkingDirectory=$ROOT
+ExecStart=$ROOT/ctl.sh doctor --alert
+UNIT
+		cat >"$unit_dir/kivuli-health.timer" <<UNIT
+[Unit]
+Description=Kivuli health check every 15 minutes
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target
+UNIT
 		cat >"$unit_dir/kivuli-backup.timer" <<UNIT
 [Unit]
 Description=Kivuli daily backup
@@ -407,8 +428,9 @@ WantedBy=timers.target
 UNIT
 		"${ctl[@]}" daemon-reload
 		"${ctl[@]}" enable kivuli.service
-		"${ctl[@]}" enable --now kivuli-backup.timer
-		echo "Kivuli now starts at boot and is backed up daily at about 03:30 to $ROOT/backups (newest 14 kept)."
+		"${ctl[@]}" enable --now kivuli-backup.timer kivuli-health.timer
+		echo "Kivuli now starts at boot, is backed up daily at about 03:30 to $ROOT/backups (newest 14 kept),"
+		echo "and checks its health every 15 minutes, emailing ALERT_EMAIL_TO (and OPS_ALERT_WEBHOOK, if set) when it breaks or recovers."
 		if [ "$MODE" != "system" ] && [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; then
 			echo "For a user service to start at boot without you logging in, enable lingering once: sudo loginctl enable-linger $USER"
 		fi
@@ -446,6 +468,28 @@ UNIT
 		esac
 		;;
 	doctor)
+		if [ "${1:-}" = "--alert" ]; then
+			# Run the check and tell someone only when the verdict changes: once when it breaks, once when it recovers.
+			report="$("$0" doctor 2>&1)" && now=ok || now=failing
+			state_file="$ROOT/.doctor-state"
+			before="$(cat "$state_file" 2>/dev/null || echo ok)"
+			echo "$now" >"$state_file"
+			if [ "$now" != "$before" ]; then
+				if [ "$now" = ok ]; then verdict="recovered"; else verdict="FAILED"; fi
+				subject="Kivuli on $(hostname): health check $verdict"
+				hook="$(env_get OPS_ALERT_WEBHOOK || true)"
+				# The webhook goes from this host directly, so it still arrives when Kivuli itself is down.
+				if [ -n "$hook" ] && command -v python3 >/dev/null 2>&1; then
+					printf '%s\n\n%s\n' "$subject" "$report" | python3 -c 'import json, sys; print(json.dumps({"text": sys.stdin.read()[:3500]}))' |
+						curl -fsS --max-time 20 -H 'Content-Type: application/json' -d @- "$hook" >/dev/null && echo "Webhook sent." || echo "Webhook failed." >&2
+				fi
+				# Email through Kivuli's own mail settings, when its notify worker is up.
+				echo "$report" | docker compose exec -T notify python -m app.manage ops-alert --subject "$subject" 2>/dev/null || echo "Email not sent (notify worker down, or ALERT_EMAIL_TO empty)." >&2
+			fi
+			echo "$report"
+			[ "$now" = ok ]
+			exit $?
+		fi
 		daemon_start
 		ok=0
 		echo "Containers:"
