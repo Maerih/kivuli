@@ -1,6 +1,6 @@
 # Reference (generated)
 
-Generated from the running code on 2026-10-30 by `tools/gen_reference.py`. Do not edit by hand; regenerate after a change:
+Generated from the running code on 2026-10-31 by `tools/gen_reference.py`. Do not edit by hand; regenerate after a change:
 
 ```bash
 ./ctl.sh docker compose exec -T api python - < tools/gen_reference.py > docs/REFERENCE.md
@@ -18,6 +18,9 @@ All paths are under `/api`. A request is authenticated by the session cookie (co
 |---|---|---|---|
 | GET | `/audit` | admin | The audit log, newest first; filter by action prefix and user. |
 | GET | `/dashboard` | viewer | Figures behind the Trends page: volumes, types, countries, actors, sectors, timeline, what is rising, exposure counts. |
+| POST | `/shell/close` | admin | End access now. Sessions already in the terminal end when the page is closed. |
+| POST | `/shell/open` | admin | Allow this administrator's browser to reach the terminal for the next GRANT_HOURS. Audited. |
+| GET | `/shell/status` | admin | Whether the server shell is available to this administrator, and if not, why. |
 | GET | `/system/email-log` | analyst | The last 50 alert emails and whether each was delivered. |
 | GET | `/system/health` | analyst | Health of the database, search index, queues and Tor gateway, crawl activity, email settings, collection policy flags and data-quality figures. |
 | POST | `/system/test-email` | admin | Queue a test message to one address. |
@@ -249,8 +252,9 @@ Every TAXII path also answers without its trailing slash, because reverse proxie
 |---|---|---|---|
 | GET | `/healthz` | public | Liveness probe for the container. |
 | GET | `/metrics` | analyst | Prometheus exposition. Scrape with an API key: Authorization: Bearer <key>. |
+| GET | `/shell/authorize` | public | Asked by Caddy (forward_auth) before every request to /shell. 204 lets it through. |
 
-141 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
+145 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
 
 ## Data model
 
@@ -893,7 +897,7 @@ Environment settings, read from `.env` by `./ctl.sh` and passed to the container
 |---|---|---|
 | `APP_NAME` | `Kivuli` | Name shown in the console and in alert email. |
 | `ROLE` | `api` | Which role a backend container plays (api, crawler, pipeline, enricher, notify, beat, egress). Set by docker-compose, not by you. |
-| `PUBLIC_URL` | `http://localhost:3000` | Address researchers use to reach the console. Links in alert email and the TAXII discovery document point here. |
+| `PUBLIC_URL` | `http://localhost:28941` | Address researchers use to reach the console. Links in alert email and the TAXII discovery document point here. |
 | `DATABASE_URL` | *empty* | PostgreSQL connection. Built by docker-compose from POSTGRES_PASSWORD. |
 | `OPENSEARCH_URL` | `http://search:9200` | Search node address. |
 | `OPENSEARCH_USER` | *empty* | Search node user, if it has authentication. |
@@ -903,6 +907,9 @@ Environment settings, read from `.env` by `./ctl.sh` and passed to the container
 | `JWT_SECRET` | *generated* | Signs session cookies. Generated. |
 | `SESSION_TTL_MINUTES` | `480` | How long a console session lasts. |
 | `COOKIE_SECURE` | `False` | Set to true when the console is served over HTTPS. |
+| `SHELL_ENABLED` | `False` |  |
+| `SHELL_SSH_HOST` | `host.docker.internal` |  |
+| `SHELL_SSH_PORT` | `22` |  |
 | `RATE_LIMIT_PER_MINUTE` | `300` | API requests allowed per client address per minute. |
 | `LOGIN_RATE_LIMIT_PER_MINUTE` | `10` | Sign-in attempts allowed per client address per minute. |
 | `BOOTSTRAP_ADMIN_EMAIL` | *empty* | First administrator, created once when there are no users. |
@@ -928,6 +935,7 @@ Environment settings, read from `.env` by `./ctl.sh` and passed to the container
 | `LIVENESS_INTERVAL_HOURS` | `12` | How often discovered and paused sources are re-checked. |
 | `EMAIL_ENABLED` | `True` | Send alert email at all. |
 | `SMTP_HOST` | `mailpit` | Mail relay. The bundled test inbox by default. |
+| `MAILPIT_PORT` | `28942` |  |
 | `SMTP_PORT` | `1025` | Mail relay port. |
 | `SMTP_USERNAME` | *empty* | Mail relay user. |
 | `SMTP_PASSWORD` | *empty* | Mail relay password. |
@@ -946,6 +954,14 @@ Environment settings, read from `.env` by `./ctl.sh` and passed to the container
 | `ABUSEIPDB_API_KEY` | *empty* | AbuseIPDB key. *Also settable in the console.* |
 | `GREYNOISE_API_KEY` | *empty* | GreyNoise key. *Also settable in the console.* |
 | `NVD_API_KEY` | *empty* | Optional NVD key; raises the rate limit. *Also settable in the console.* |
+| `DWI_API_KEY` | *empty* |  |
+| `DWI_BASE_URL` | `https://api.darkwebinformer.com` |  |
+| `INTELOWL_URL` | *empty* |  |
+| `INTELOWL_API_KEY` | *empty* |  |
+| `INTELOWL_DIRECT` | `False` |  |
+| `INTELOWL_PLAYBOOK` | `FREE_TO_USE_ANALYZERS` |  |
+| `INTELOWL_ANALYZERS` | *empty* |  |
+| `INTELOWL_TLP` | `AMBER` |  |
 | `ANTHROPIC_API_KEY` | *empty* | Anthropic key; switches the AI analyst on. *Also settable in the console.* |
 | `AI_MODEL` | `claude-opus-5-5` | Model the AI analyst uses. *Also settable in the console.* |
 | `ASM_MAX_HOSTS` | `300` | Most hosts tracked per owned domain. |
@@ -957,8 +973,8 @@ Read only by docker-compose and `ctl.sh`, not by the application:
 |---|---|---|
 | `POSTGRES_PASSWORD` | *generated* | Database password. |
 | `REDIS_PASSWORD` | *generated* | Queue password. |
-| `WEB_PORT` | `3000` | Port the console is published on, on 127.0.0.1 only. |
-| `MAILPIT_PORT` | `8025` | Port of the bundled test inbox, on 127.0.0.1 only. |
+| `WEB_PORT` | `28941` | Port the console is published on, on 127.0.0.1 only. |
+| `MAILPIT_PORT` | `28942` | Port of the bundled test inbox, on 127.0.0.1 only. |
 | `SEARCH_HEAP` | `768m` | Memory given to the search node. |
 | `CRAWLER_CONCURRENCY` | `6` | Simultaneous fetches. |
 | `PIPELINE_CONCURRENCY` | `4` | Simultaneous pages being processed. |
@@ -1105,6 +1121,8 @@ Task routing: `crawl.*` → queue `crawl`, `pipeline.*` → queue `pipeline`, `n
 | Shodan | commercial | ip | api.shodan.io | `SHODAN_API_KEY` |
 | AbuseIPDB | commercial | ip | api.abuseipdb.com | `ABUSEIPDB_API_KEY` |
 | GreyNoise | commercial | ip | api.greynoise.io | `GREYNOISE_API_KEY` |
+| Dark Web Informer | commercial |  | api.darkwebinformer.com | `DWI_API_KEY` |
+| IntelOwl | commercial | ip, domain, url, hash | - | `INTELOWL_API_KEY` |
 | Have I Been Pwned | planned | email, domain | - | - |
 | urlscan.io | planned | url, domain | - | - |
 | SecurityTrails | planned | domain, ip | - | - |

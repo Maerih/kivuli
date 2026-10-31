@@ -48,7 +48,7 @@ def _why_not(user: User) -> str:
     if user.role != "admin":
         return "Only administrators can open the server shell."
     if not user.mfa_enabled:
-        return "Turn on two-step sign-in for your account first (Settings > Security)."
+        return "Turn on two-step sign-in for your account first (System > My account > Two-step sign-in)."
     return ""
 
 

@@ -359,7 +359,7 @@ echo
 say "Done"
 echo "  Console:      https://$DOMAIN"
 echo "  First admin:  $(grep -E '^BOOTSTRAP_ADMIN_EMAIL=' .env | cut -d= -f2-)   password: grep BOOTSTRAP_ADMIN_PASSWORD $DIR/.env"
-echo "  Next:         sign in, change the password, turn on two-step sign-in (Settings > Security),"
+echo "  Next:         sign in, change the password, turn on two-step sign-in (System > My account),"
 echo "                then add your keys under Integrations."
 echo "  Manage:       cd $DIR && ./ctl.sh status | logs | doctor | update | backup"
 echo "  Kivuli uses:  127.0.0.1:$WEB_PORT (console), :$MAILPIT_PORT (test inbox), :$SHELL_PORT (shell)"

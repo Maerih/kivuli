@@ -406,30 +406,6 @@ yet appeared in a finding.
 
 ## 10. Roadmap
 
-In the order the brief gave them.
-
-**Next, to widen what search can reach**
-
-- More source kinds a researcher can add in one click (paste sites, open
-  boards), with per-kind parsing.
-- Source nodes and source-to-source links in the relationship graph.
-- Alert events.
-- A source value score from relevance, references, volume and freshness.
-
-**Then, research power**
-
-- People, file names and technologies as entities.
-- Path finding between two entities; clustering of actors and campaigns.
-- Screenshots from a disposable, network-isolated renderer.
-- Semantic search, once the corpus is large and multilingual enough to benefit.
-
-**Operational**
-
-- Prove restore; prove a valid key for each provider and for the AI analyst;
-  prove Slack, Teams, Jira and ServiceNow against real instances.
-- Redis ACLs per worker role.
-- A second crawler and a load test.
-- Single sign-on.
-
-The history of what was built in each phase, and why, is in
-[GAP-ANALYSIS.md](GAP-ANALYSIS.md).
+Future steps, what each needs, and what will not be built, are in
+[ROADMAP.md](ROADMAP.md). The history of what was built in each phase, and
+why, is in [GAP-ANALYSIS.md](GAP-ANALYSIS.md).

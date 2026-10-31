@@ -428,6 +428,10 @@ the first time; later starts reuse the cached layers.
 
 ## Running it on a VPS
 
+The full guide (installation, configuration, management, backups, updates,
+troubleshooting, security) is [docs/OPERATIONS.md](docs/OPERATIONS.md); next
+steps are in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 **The easy way: `install.sh`.** It looks at the server first and works around
 what is already there, so other websites keep running untouched:
 
