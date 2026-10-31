@@ -205,8 +205,8 @@ print(" ".join(sorted(a["data"] for a in json.load(sys.stdin).get("Answer", []) 
 # machine's resolver, which may still hold an old answer after a change.
 dns_ok=1
 local_resolved="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{ print $1 }' | sort -u | tr '\n' ' ' || true)"
-resolved="$(public_a "$DOMAIN" || true)"
-[ -n "$resolved" ] || resolved="$local_resolved"
+resolved="$(public_a "$DOMAIN" || true)" dns_from="public DNS"
+[ -n "$resolved" ] || { resolved="$local_resolved"; dns_from="this server's resolver; public DNS did not answer"; }
 DOMAIN_IP="${resolved%% *}"
 public_ip="$(curl -4 -s --max-time 8 https://api.ipify.org 2>/dev/null || true)"
 local_ips="$(hostname -I 2>/dev/null || true) $public_ip"
@@ -215,7 +215,7 @@ if [ -z "$resolved" ]; then
 elif ! echo " $local_ips " | grep -Eq " ($(echo "$resolved" | sed 's/ $//; s/ /|/g')) "; then
 	bad "$DOMAIN points to $resolved, but this server is ${public_ip:-$(hostname -I)}. Fix the DNS A record first."; dns_ok=0
 else
-	ok "DNS: $DOMAIN points to this server ($resolved, public DNS)"
+	ok "DNS: $DOMAIN points to this server ($(echo "$resolved" | xargs), $dns_from)"
 fi
 if [ -n "$local_resolved" ] && [ "$(echo "$local_resolved" | xargs)" != "$(echo "$resolved" | xargs)" ]; then
 	warn "This server's own resolver still says $DOMAIN is $(echo "$local_resolved" | xargs) (an old cached answer, or an entry in /etc/hosts)."
