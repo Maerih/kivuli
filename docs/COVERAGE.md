@@ -201,6 +201,7 @@ limits. **Not built** is absent.
 |---|---|---|
 | Actor activity patterns: tempo, weekdays, quiet spells, where claims appear, month-by-month targeting | Built | Own claims only; uncollected days excluded; no hour-of-day (tracker discovery times) |
 | Event timeline by actor, linking same victim, same CVE and shared indicators; alias suggestions | Built | Indicator links only across actors and sources; common platforms excluded |
+| Path finding between two entities or indicators, with the finding behind each step | Built | Up to 4 steps; techniques, platforms and very common entities are not steps |
 | World map of countries named in findings, click-through to findings | Built | Natural Earth 1:110m (public domain); ISO numeric codes from pycountry |
 | Search everywhere from any indicator or entity | Built | |
 | Find connections from any indicator, entity or finding | Built | |

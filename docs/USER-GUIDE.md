@@ -570,6 +570,14 @@ or finding. Labelled lines are stated relationships; plain lines mean the two
 appear in the same findings. Click a legend entry to hide that type; double
 click a node to re-centre; *Bookmark to case* saves the node.
 
+*Find a connection*, below the graph, answers "how is this connected to
+that?": pick another actor, organisation or malware family and Kivuli shows
+the shortest chains (up to four steps) between them, each step with the
+finding both appear in or the relationship that joins them. Techniques every
+group uses, common platforms and very common entities are not used as steps,
+so a connection means something specific. The address of the page with
+`&to=` is a link you can share.
+
 **ATT&CK.** The MITRE ATT&CK Enterprise matrix, shaded by how often each
 technique appears in what you collected. Click a technique for its description,
 the findings tagged with it and the groups known to use it.

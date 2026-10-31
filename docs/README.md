@@ -7,7 +7,7 @@
 | [USER-GUIDE.md](USER-GUIDE.md) | Researchers and analysts | Every screen, the full search language, research crawls, investigations, alerts, common tasks, glossary |
 | [TECHNICAL.md](TECHNICAL.md) | Engineers and operators | Architecture, containers and networks, collection, the processing pipeline, extraction, scoring formulas, search internals, alerting, enrichment and AI, access control, operations, extending |
 | [COVERAGE.md](COVERAGE.md) | Anyone deciding what to rely on | What is collected and stored, every capability with its status, what it will never do, what is not built, how far each part has been proven, where accuracy is limited |
-| [REFERENCE.md](REFERENCE.md) | Integrators | Generated from the running code: all 145 API operations with required role, every table and column, every setting, scheduled tasks, fixed value lists |
+| [REFERENCE.md](REFERENCE.md) | Integrators | Generated from the running code: all 146 API operations with required role, every table and column, every setting, scheduled tasks, fixed value lists |
 | [GAP-ANALYSIS.md](GAP-ANALYSIS.md) | History | The audit against modern CTI capabilities, and what each phase delivered and validated |
 | [../README.md](../README.md) | First-time setup | Starting it, the research workflow in brief, the security model |
 

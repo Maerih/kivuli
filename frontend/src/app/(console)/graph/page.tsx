@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { AddToCase } from "@/components/bits";
 import { PageHeader } from "@/components/shell";
-import { Badge, Button, Card, Empty, ErrorNote, Spinner } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Spinner } from "@/components/ui";
 import { qs, useApi } from "@/lib/api";
 import { cn, day, defang, ENTITY_LABELS, IOC_LABELS } from "@/lib/format";
 
@@ -170,6 +170,74 @@ function Canvas({ graph, onExpand }: { graph: Graph; onExpand: (id: string) => v
   );
 }
 
+interface PathNode { id: string; kind: string; type: string; label: string; findings: number; href: string }
+interface PathHop { via: "finding" | "relationship" | "unknown"; id?: string; title?: string; date?: string | null; source?: string; label?: string }
+interface PathResult { from: PathNode; to: PathNode; paths: { length: number; nodes: PathNode[]; hops: PathHop[] }[]; expanded: number; max_hops: number; note: string }
+
+/** How the item on screen connects to another: the shortest chains of findings and stated relationships. */
+function PathFinder({ from }: { from: string }) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const to = params.get("to");
+  const [q, setQ] = useState("");
+  const [term, setTerm] = useState("");
+  const { data: found } = useApi<{ items: { id: number; type: string; name: string; doc_count: number }[] }>(term ? `/entities${qs({ q: term, sort: "frequent", size: 8 })}` : null);
+  const { data, error, isLoading } = useApi<PathResult>(to ? `/graph/path${qs({ from, to })}` : null);
+  const pick = (target: string) => { setTerm(""); setQ(""); router.replace(`/graph${qs({ node: from, to: target })}`); };
+  return (
+    <Card className="mt-4">
+      <CardHeader title="Find a connection" hint={`The shortest chains (up to ${data?.max_hops ?? 4} steps) linking this item to another, through findings and stated relationships. Common techniques, platforms and very common entities are not used as steps.`} />
+      <div className="px-4 py-3">
+        <form onSubmit={(e) => { e.preventDefault(); setTerm(q.trim()); }} className="relative max-w-xl">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input className="field pl-9" placeholder="Connect to an actor, organisation or malware family…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Connect to" />
+        </form>
+        {term && found && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted">{found.items.length ? "Connect to" : "No matching entities"}</span>
+            {found.items.filter((e) => e.type !== "incident" && `entity:${e.id}` !== from).map((e) => (
+              <button key={e.id} onClick={() => pick(`entity:${e.id}`)} className="rounded-full border border-line-strong bg-raised px-2.5 py-0.5 text-xs hover:border-accent hover:text-accent-ink">
+                {e.name} <span className="text-muted">{e.doc_count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <ErrorNote error={error} />
+        {to && isLoading && <div className="mt-3"><Spinner label="Searching for connections" /></div>}
+        {data && (
+          <div className="mt-3 space-y-3">
+            <p className="text-sm">
+              <Link className="font-medium hover:underline" href={data.from.href}>{data.from.label}</Link> <span className="text-muted">to</span>{" "}
+              <Link className="font-medium hover:underline" href={data.to.href}>{data.to.label}</Link>
+              <span className="text-xs text-muted"> · {data.paths.length ? `${data.paths.length} shortest path${data.paths.length > 1 ? "s" : ""}, ${data.paths[0].length} step${data.paths[0].length > 1 ? "s" : ""}` : "no path"}</span>
+            </p>
+            {data.paths.length === 0 && <p className="text-sm text-muted">{data.note}</p>}
+            {data.paths.map((p, i) => (
+              <ol key={i} className="rounded-md border border-line px-3 py-2 text-sm">
+                {p.nodes.map((n, j) => (
+                  <li key={n.id + j}>
+                    <div className="flex items-center gap-2 py-0.5">
+                      <Link href={n.href} className="font-medium hover:underline">{n.label}</Link>
+                      <span className="text-2xs text-muted">{ENTITY_LABELS[n.type] ?? IOC_LABELS[n.type] ?? n.type}</span>
+                      <button className="ml-auto text-2xs text-accent-ink hover:underline" onClick={() => router.push(`/graph${qs({ node: n.id })}`)}>Explore</button>
+                    </div>
+                    {p.hops[j] && (
+                      <div className="ml-2 border-l-2 border-line py-1 pl-3 text-xs text-ink-2">
+                        {p.hops[j].via === "finding" ? <>both in <Link href={`/findings/${p.hops[j].id}`} className="text-accent-ink hover:underline">{p.hops[j].title}</Link>{p.hops[j].date ? ` · ${day(p.hops[j].date)}` : ""} · {p.hops[j].source}</>
+                          : p.hops[j].via === "relationship" ? <>stated: <span className="font-medium">{p.hops[j].label}</span> ({p.hops[j].source})</> : "linked"}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 function GraphPage() {
   const params = useSearchParams();
   const router = useRouter();
@@ -205,6 +273,7 @@ function GraphPage() {
         : !data && isLoading ? <Spinner label="Building graph" />
         : data && data.nodes.length <= 1 ? <Card><Empty title="No relationships yet" hint="Nothing else has been seen alongside this item so far." /></Card>
         : data ? <div className={cn(isLoading && "opacity-60")}><Canvas graph={data} onExpand={expand} /></div> : null}
+      {node && /^(entity|ioc):\d+$/.test(node) && <PathFinder from={node} />}
     </>
   );
 }

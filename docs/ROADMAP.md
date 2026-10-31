@@ -38,10 +38,12 @@ Jira and ServiceNow deliveries; HTTPS and the server shell on a public domain.
 
 ## 3. Analysis
 
+Built since this list was written: path finding between two entities
+(Relationships → Find a connection).
+
 | Item | Needs | Notes |
 |---|---|---|
 | Translation of non-English findings | an Anthropic key | Worth it once the collection includes more Russian- and Chinese-language forums; today almost everything is English |
-| Path finding between two entities | — | "How is this actor connected to this victim?" over the existing graph |
 | Actor and campaign clustering | — | From shared indicators, victims and infrastructure; the timeline's alias suggestions are a first step |
 | People, file names and technologies as entities | — | Extends extraction and the graph |
 | Semantic search | a larger, multilingual corpus | Embeddings and a vector index; only worth it at scale |
