@@ -202,7 +202,7 @@ All paths are under `/api`. A request is authenticated by the session cookie (co
 
 | Method | Path | Role | What it does |
 |---|---|---|---|
-| GET | `/sources` | viewer | Sources, optionally through one of the explorer's views: new, offline, changed, referenced, relevant. |
+| GET | `/sources` | viewer | Sources, optionally through one of the explorer's views: new, offline, changed, referenced, relevant, valuable. |
 | POST | `/sources` | analyst | Add a source by address. Added as a candidate unless `approve` is set. |
 | POST | `/sources/discover` | analyst | Look up where ransomware groups publish and file their sites as candidates for review. |
 | DELETE | `/sources/{source_id}` | admin | Delete a source that has no findings. One with findings can only be paused or blocked, so evidence is kept. |
@@ -251,11 +251,13 @@ Every TAXII path also answers without its trailing slash, because reverse proxie
 
 | Method | Path | Role | What it does |
 |---|---|---|---|
+| GET | `/docs` | viewer | Api docs |
 | GET | `/healthz` | public | Liveness probe for the container. |
+| GET | `/openapi.json` | viewer | Openapi schema |
 | GET | `/metrics` | analyst | Prometheus exposition. Scrape with an API key: Authorization: Bearer <key>. |
 | GET | `/shell/authorize` | public | Asked by Caddy (forward_auth) before every request to /shell. 204 lets it through. |
 
-146 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.
+148 operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`, to signed-in users and API keys.
 
 ## Data model
 

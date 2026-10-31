@@ -3,19 +3,22 @@ import logging
 import time
 
 import redis
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
 
 from app.api import admin, ai, attack, auth, cases, chain, exposure, findings, integrations, intel, reports, research, rules, paths, patterns, search, shell, sources, taxii, timeline, tools, watch
 from app.config import get_settings
-from app.security import CSRF_HEADER, client_ip
+from app.models import User
+from app.security import CSRF_HEADER, client_ip, viewer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("kivuli.api")
 settings = get_settings()
 _redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
 
-app = FastAPI(title=f"{settings.app_name} API", version="1.1.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+# The schema and its interactive view are for signed-in users and API keys only (served below), not the open internet.
+app = FastAPI(title=f"{settings.app_name} API", version="1.1.0", docs_url=None, openapi_url=None, redoc_url=None)
 
 
 class _Skip(Exception):
@@ -50,6 +53,16 @@ async def guard(request: Request, call_next):
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
+
+
+@app.get("/api/openapi.json", include_in_schema=False)
+def openapi_schema(user: User = Depends(viewer)):
+    return app.openapi()
+
+
+@app.get("/api/docs", include_in_schema=False)
+def api_docs(user: User = Depends(viewer)):
+    return get_swagger_ui_html(openapi_url="/api/openapi.json", title=f"{settings.app_name} API")
 
 
 @app.get("/api/healthz", include_in_schema=False)

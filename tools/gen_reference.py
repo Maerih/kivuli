@@ -207,7 +207,7 @@ if hidden:
             total += 1
             w(f"| {method} | `{route.path.removeprefix('/api')}` | {role_for(route)} | {describe(method, route)} |")
     w("")
-w(f"{total} operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`.\n")
+w(f"{total} operations. The machine-readable schema is served at `/api/openapi.json` and an interactive view at `/api/docs`, to signed-in users and API keys.\n")
 
 # ── Data model ──
 w("## Data model\n")

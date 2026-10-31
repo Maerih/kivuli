@@ -419,6 +419,7 @@ APACHE
 # Remove: rm $CADDY_SITE && systemctl reload caddy   (and the import line in /etc/caddy/Caddyfile)
 $DOMAIN {
 	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	# The server shell (./ctl.sh shell on): every request first asks Kivuli, which lets through only
 	# an administrator with two-step sign-in who opened it in the console.
 	handle /shell* {
