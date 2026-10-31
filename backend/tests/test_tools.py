@@ -115,3 +115,19 @@ def test_actor_patterns_summary():
     r = summarise(claims, now, covered)
     assert r["longest_quiet_days"] == 3  # 3-5 Oct, then 26-27 Oct; the gap 6-25 Oct ends each run
     assert r["uncollected_days"] == 20 and r["median_gap_days"] == 1  # the 2 -> 28 Oct gap spans uncollected days
+
+
+def test_source_value_ranks_relevant_referenced_live_sites_first():
+    from datetime import datetime, timedelta, timezone
+
+    from app.intel.source_value import score
+
+    now = datetime(2026, 10, 31, tzinfo=timezone.utc)
+    leak = score(relevance=8, references=6, findings=40, category="ransomware_leak_site", last_changed=now - timedelta(days=2),
+                 is_live=True, failures=0, now=now)
+    dead_shop = score(relevance=1, references=0, findings=0, category="other", last_changed=None, is_live=False, failures=5, now=now)
+    fresh_candidate = score(relevance=6, references=3, findings=0, category="forum", last_changed=None, is_live=None, failures=0, now=now)
+    assert leak[0] > fresh_candidate[0] > dead_shop[0]
+    assert leak[0] <= 100 and dead_shop[0] == 3  # only its relevance counts
+    assert leak[1][0]["points"] >= leak[1][-1]["points"]  # reasons, largest first
+    assert any("Linked from 3 other sites" == f["label"] for f in fresh_candidate[1])

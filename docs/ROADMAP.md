@@ -33,13 +33,13 @@ Jira and ServiceNow deliveries; HTTPS and the server shell on a public domain.
 | Telegram channels through an account | a Telegram API id and hash, and a logged-in session | Today only public channel previews (t.me/s/…) are read. Media would go through the same guardrails as pages |
 | Pastebin's scraping API | a Pastebin PRO account with the server's IP whitelisted | Their sanctioned route for collecting new public pastes; most other paste sites forbid automated collection |
 | More research feeds | — | Cisco Talos and Microsoft block automated readers and Google publishes no feed; revisit if they change. Add others as sources in one click |
-| A value score per source | — | From relevance, how often others reference it, volume and freshness, to rank what to approve |
 | Source nodes in the relationship graph | — | Which sites link to which, drawn with the entities |
 
 ## 3. Analysis
 
 Built since this list was written: path finding between two entities
-(Relationships → Find a connection).
+(Relationships → Find a connection), and a value score per source with a
+Most valuable view in the source explorer.
 
 | Item | Needs | Notes |
 |---|---|---|

@@ -10,6 +10,7 @@ from app.api.common import iso
 from app.config import get_settings
 from app.crawl.fetcher import validate_url
 from app.db import get_db
+from app.intel import source_value
 from app.models import SOURCE_STATUSES, CrawlLog, Source, SourceLink, User, utcnow
 from app.security import admin, analyst, audit, viewer
 from app.worker.celery_app import enqueue
@@ -47,7 +48,7 @@ def _out(s: Source) -> dict:
 @router.get("/sources")
 def list_sources(status: str | None = None, network: str | None = None, q: str = Query("", max_length=200), view: str | None = None,
                  category: str | None = None, db: Session = Depends(get_db), user: User = Depends(viewer)):
-    """Sources, optionally through one of the explorer's views: new, offline, changed, referenced, relevant."""
+    """Sources, optionally through one of the explorer's views: new, offline, changed, referenced, relevant, valuable."""
     week = utcnow() - timedelta(days=7)
     inbound = select(SourceLink.dst_host, func.count().label("n")).group_by(SourceLink.dst_host).subquery()
     stmt = select(Source, func.coalesce(inbound.c.n, 0)).outerjoin(inbound, inbound.c.dst_host == Source.host)
@@ -71,9 +72,16 @@ def list_sources(status: str | None = None, network: str | None = None, q: str =
         stmt, order = stmt.where(inbound.c.n > 0), (inbound.c.n.desc(), Source.name)
     elif view == "relevant":
         stmt, order = stmt.where(Source.relevance > 0, Source.status != "blocked"), (Source.relevance.desc(), Source.doc_count.desc())
+    elif view == "valuable":
+        stmt = stmt.where(Source.status.notin_(("blocked",)))
     found = db.execute(stmt.order_by(*order).limit(1000)).all()
     rows = [r[0] for r in found]
     referenced = {r[0].id: r[1] for r in found}
+    now = utcnow()
+    values = {s.id: source_value.score(relevance=s.relevance, references=referenced[s.id], findings=s.doc_count, category=s.category,
+                                       last_changed=s.last_changed_at, is_live=s.is_live, failures=s.consecutive_failures, now=now) for s in rows}
+    if view == "valuable":
+        rows.sort(key=lambda s: -values[s.id][0])
     counts = dict(db.execute(select(Source.status, func.count()).group_by(Source.status)).all())
     onion = dict(db.execute(select(Source.status, func.count()).where(Source.network == "onion").group_by(Source.status)).all())
     views = {
@@ -83,7 +91,8 @@ def list_sources(status: str | None = None, network: str | None = None, q: str =
         "referenced": db.scalar(select(func.count()).select_from(Source).where(Source.host.in_(select(SourceLink.dst_host)))) or 0,
     }
     return {"counts": counts, "views": views, "referenced": referenced, "onion": {"approved": onion.get("approved", 0), "candidate": onion.get("candidate", 0)}, "categories": CATEGORIES, "connector_labels": CONNECTORS, "connectors": {k: CONNECTORS[k] for k in USER_CONNECTORS},
-            "egress_allow_hosts": settings.egress_allow_list, "items": [_out(s) for s in rows]}
+            "egress_allow_hosts": settings.egress_allow_list,
+            "items": [{**_out(s), "value": values[s.id][0], "value_factors": values[s.id][1]} for s in rows]}
 
 
 class SourceIn(BaseModel):

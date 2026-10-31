@@ -17,9 +17,10 @@ interface Source {
   last_live_at: string | null; last_crawled_at: string | null; last_http_status: number | null; last_error: string; consecutive_failures: number;
   doc_count: number; discovery_context: string; notes: string; egress_blocked: boolean;
   title: string; language: string; relevance: number; last_changed_at: string | null; created_at: string;
+  value?: number; value_factors?: { label: string; points: number }[];
 }
 // The explorer's views: a status, or a way of looking across statuses.
-const VIEWS = ["new", "changed", "referenced", "offline"] as const;
+const VIEWS = ["valuable", "new", "changed", "referenced", "offline"] as const;
 interface SourceList { counts: Record<string, number>; connector_labels?: Record<string, string>; views?: Record<string, number>; referenced?: Record<string, number>; onion?: { approved: number; candidate: number }; categories: string[]; connectors: Record<string, string>; egress_allow_hosts: string[]; items: Source[] }
 interface LogRow { id: number; url: string; depth: number; probe: boolean; fetched_at: string; ok: boolean; http_status: number | null; bytes: number; elapsed_ms: number; error: string; new_docs: number; changed_docs: number; unchanged_docs: number }
 
@@ -91,6 +92,7 @@ function SourcesPage() {
           <div className="min-w-0 flex-1">
             <Tabs value={status} onChange={(v) => { setStatus(v); setQ(""); }} tabs={[
               { id: "approved", label: "Active", count: counts.approved ?? 0 }, { id: "candidate", label: "Discovered", count: counts.candidate ?? 0 },
+              { id: "valuable", label: "Most valuable" },
               { id: "new", label: "New this week", count: data?.views?.new ?? 0 }, { id: "changed", label: "Recently changed", count: data?.views?.changed ?? 0 },
               { id: "referenced", label: "Most referenced", count: data?.views?.referenced ?? 0 }, { id: "offline", label: "Offline", count: data?.views?.offline ?? 0 },
               { id: "paused", label: "Paused", count: counts.paused ?? 0 }, { id: "blocked", label: "Blocked", count: counts.blocked ?? 0 },
@@ -112,6 +114,7 @@ function SourcesPage() {
                   <tr key={s.id}>
                     <td className="td max-w-sm">
                       <div className="flex items-center gap-2"><Link href={`/sources/${s.id}`} className="truncate font-medium hover:text-accent-ink hover:underline">{s.title || s.name}</Link><NetworkBadge network={s.network} />
+                        {s.value !== undefined && <Badge tone={s.value >= 50 ? "accent" : "neutral"} title={`Value ${s.value}/100: ${(s.value_factors ?? []).map((f) => `${f.label} +${f.points}`).join("; ") || "nothing yet"}`}>Value {s.value}</Badge>}
                         {s.relevance >= 4 && <Badge tone="accent" title={`Its own title scores ${s.relevance}/10 for security-research relevance`}>Relevant</Badge>}
                         {(data.referenced?.[s.id] ?? 0) > 0 && <Badge title="Other sources that link to it">{data.referenced![s.id]} link{data.referenced![s.id] === 1 ? "" : "s"} in</Badge>}</div>
                       {s.title && s.title !== s.name && <div className="truncate text-xs text-ink-2">{s.name}</div>}

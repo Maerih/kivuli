@@ -294,6 +294,7 @@ unless you press *Close the shell*.
 | Tab | Shows |
 |---|---|
 | **Active** | Being collected on a schedule |
+| **Most valuable** | Every source ranked by its value score: start the candidate queue here |
 | **Discovered** | Found but not collected. Each was checked when found: does it answer, what does it call itself |
 | **New this week** | Added or discovered in the last seven days |
 | **Recently changed** | Sources where the last crawl found new or changed pages |
@@ -301,6 +302,14 @@ unless you press *Close the shell*.
 | **Offline** | Not answering |
 | **Paused** | Not monitored (includes sites you crawled once) |
 | **Blocked** | Never contacted again |
+
+Every source carries a **Value** badge, 0 to 100; hover it for the reasons.
+It adds up how relevant the site's title and context read (up to 30), how many
+other collected sites link to it (20), how many findings it has given (20),
+its kind (leak sites, forums and markets 10, trackers and paste sites 7),
+how recently it had new pages (10) and whether it answers (10). A candidate
+has no findings yet, so candidates compete on relevance, links, kind and
+whether they are up.
 
 Filter by Tor or web, and by name, title or address. A **Relevant** badge means
 the site's own title scores well for security research. *N links in* is how many
