@@ -189,9 +189,25 @@ if [ "$FRONT" = caddyhost ]; then
 	fi
 fi
 
-# DNS: the domain must point here before a certificate can be issued.
+# A domain's A records as public DNS sees them (Google, then Cloudflare, over HTTPS). That is what
+# Let's Encrypt checks, and it is not fooled by a stale answer cached on this machine.
+public_a() {
+	local url
+	for url in "https://dns.google/resolve?name=$1&type=A" "https://cloudflare-dns.com/dns-query?name=$1&type=A"; do
+		curl -fsS --max-time 8 -H 'accept: application/dns-json' "$url" 2>/dev/null | python3 -c '
+import json, sys
+print(" ".join(sorted(a["data"] for a in json.load(sys.stdin).get("Answer", []) if a.get("type") == 1)))' 2>/dev/null | grep . && return 0
+	done
+	return 1
+}
+
+# DNS: the domain must point here before a certificate can be issued. Asked of public DNS, not this
+# machine's resolver, which may still hold an old answer after a change.
 dns_ok=1
-resolved="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{ print $1 }' | sort -u | tr '\n' ' ' || true)"
+local_resolved="$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{ print $1 }' | sort -u | tr '\n' ' ' || true)"
+resolved="$(public_a "$DOMAIN" || true)"
+[ -n "$resolved" ] || resolved="$local_resolved"
+DOMAIN_IP="${resolved%% *}"
 public_ip="$(curl -4 -s --max-time 8 https://api.ipify.org 2>/dev/null || true)"
 local_ips="$(hostname -I 2>/dev/null || true) $public_ip"
 if [ -z "$resolved" ]; then
@@ -199,7 +215,11 @@ if [ -z "$resolved" ]; then
 elif ! echo " $local_ips " | grep -Eq " ($(echo "$resolved" | sed 's/ $//; s/ /|/g')) "; then
 	bad "$DOMAIN points to $resolved, but this server is ${public_ip:-$(hostname -I)}. Fix the DNS A record first."; dns_ok=0
 else
-	ok "DNS: $DOMAIN points to this server ($resolved)"
+	ok "DNS: $DOMAIN points to this server ($resolved, public DNS)"
+fi
+if [ -n "$local_resolved" ] && [ "$(echo "$local_resolved" | xargs)" != "$(echo "$resolved" | xargs)" ]; then
+	warn "This server's own resolver still says $DOMAIN is $(echo "$local_resolved" | xargs) (an old cached answer, or an entry in /etc/hosts)."
+	warn "Certificates use public DNS, so the install is not affected. To refresh it here: resolvectl flush-caches; and check /etc/hosts"
 fi
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
@@ -431,7 +451,7 @@ CADDY
 		fi
 		say "Waiting for https://$DOMAIN (Caddy gets the certificate on its own; usually under a minute)"
 		for _ in $(seq 1 24); do
-			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN/login" || true)"
+			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 ${DOMAIN_IP:+--resolve "$DOMAIN:443:$DOMAIN_IP"} "https://$DOMAIN/login" || true)"
 			[ "$code" = 200 ] && break
 			sleep 5
 		done

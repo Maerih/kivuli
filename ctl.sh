@@ -211,6 +211,18 @@ app_url() {
 	echo "http://localhost:$(env_get WEB_PORT || true)"
 }
 
+# A domain's A records as public DNS sees them (Google, then Cloudflare, over HTTPS). That is what
+# Let's Encrypt checks, and it is not fooled by a stale answer cached on this machine.
+public_a() {
+	local url
+	for url in "https://dns.google/resolve?name=$1&type=A" "https://cloudflare-dns.com/dns-query?name=$1&type=A"; do
+		curl -fsS --max-time 8 -H 'accept: application/dns-json' "$url" 2>/dev/null | python3 -c '
+import json, sys
+print(" ".join(sorted(a["data"] for a in json.load(sys.stdin).get("Answer", []) if a.get("type") == 1)))' 2>/dev/null | grep . && return 0
+	done
+	return 1
+}
+
 # Set KEY=VALUE in .env, replacing an existing line or adding one.
 env_set() {
 	if grep -q "^$1=" .env; then
@@ -462,7 +474,10 @@ print('  exits through Tor' if s.get('is_tor') else '  ! not confirmed yet: ' + 
 		if [ "${url#https://}" != "$url" ]; then
 			# Whatever fronts it (Kivuli's Caddy, or the server's own nginx or Apache), the public address must answer.
 			echo "HTTPS:"
-			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url/login" || true)"
+			# Connect to the address public DNS gives, so a stale answer cached on this machine does not fail the check.
+			host="${url#https://}"; host="${host%%/*}"
+			ip="$(public_a "$host" | awk '{ print $1 }' || true)"
+			code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 ${ip:+--resolve "$host:443:$ip"} "$url/login" || true)"
 			if [ "$code" = "200" ]; then echo "  $url answers"; else echo "  ! $url answered '$code' (DNS, ports 80/443, the web server's site for it, or the certificate is still being issued)"; ok=1; fi
 		fi
 		[ "$ok" = 0 ] && echo "All checks passed." || { echo "Some checks failed; see above. Logs: ./ctl.sh logs <service>"; exit 1; }
