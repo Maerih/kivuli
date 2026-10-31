@@ -131,3 +131,11 @@ def test_source_value_ranks_relevant_referenced_live_sites_first():
     assert leak[0] <= 100 and dead_shop[0] == 3  # only its relevance counts
     assert leak[1][0]["points"] >= leak[1][-1]["points"]  # reasons, largest first
     assert any("Linked from 3 other sites" == f["label"] for f in fresh_candidate[1])
+
+
+def test_spelling_variants_of_names_compare_equal():
+    from app.worker.ingest import _COMPACT_MIN, _compact
+
+    assert _compact("The Gentlemen") == _compact("Thegentlemen") == _compact("the-gentlemen")
+    assert _compact("Arcus Media") == _compact("ARCUS_MEDIA")
+    assert _compact("Play") != _compact("Plays") and len(_compact("Play")) < _COMPACT_MIN  # short names never match loosely

@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 import time
 from datetime import timezone
 
@@ -63,16 +64,46 @@ def get_matcher(db: Session, force: bool = False) -> EntityMatcher:
     return _matcher
 
 
+def _compact(name: str) -> str:
+    """Letters and digits only: "The Gentlemen", "Thegentlemen" and "the-gentlemen" are one name."""
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+# Spelling-insensitive matching only where names are distinctive: actors and malware, five characters or more.
+_COMPACT_KINDS = ("actor", "malware")
+_COMPACT_MIN = 5
+
+
+def _by_alias(db: Session, kind: str, name: str, slug: str) -> Entity | None:
+    """The existing entity a new name refers to, through an alias or a spacing/punctuation variant.
+
+    Aliases count on every entity, not only curated ones: a merge records the
+    merged name as an alias, and that is what keeps the next mention of it from
+    recreating the duplicate. Curated entities win, then the most-seen one.
+    """
+    key = _compact(name)
+    compact = kind in _COMPACT_KINDS and len(key) >= _COMPACT_MIN
+    query = select(Entity).where(Entity.type == kind).order_by(Entity.curated.desc(), Entity.doc_count.desc())
+    if not compact:
+        query = query.where(func.cardinality(Entity.aliases) > 0)
+    candidates = db.scalars(query)
+    for candidate in candidates:
+        names = candidate.aliases or []
+        if slug in {tu.slugify(alias) for alias in names}:
+            return candidate
+        if compact and key in {_compact(n) for n in (candidate.name, *names)}:
+            if name not in names:
+                candidate.aliases = [*names, name]  # remember the spelling it was seen under
+            return candidate
+    return None
+
+
 def get_or_create_entity(db: Session, kind: str, name: str, **fields) -> Entity:
     name = " ".join(name.split())[:300]
     slug = tu.slugify(name)
     entity = db.scalar(select(Entity).where(Entity.type == kind, Entity.slug == slug))
     if entity is None:
-        # Curated actors and malware own their aliases ("BlackCat" is ALPHV, "lockbit3" is LockBit).
-        for candidate in db.scalars(select(Entity).where(Entity.type == kind, Entity.curated.is_(True))):
-            if slug in {tu.slugify(alias) for alias in candidate.aliases or []}:
-                entity = candidate
-                break
+        entity = _by_alias(db, kind, name, slug)
     if entity is None:
         db.execute(pg_insert(Entity).values(type=kind, name=name, slug=slug, aliases=[], **fields)
                    .on_conflict_do_nothing(index_elements=["type", "slug"]))
