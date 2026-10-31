@@ -151,7 +151,7 @@ existing_env="$DIR/.env"
 env_val() { [ -f "$existing_env" ] && grep -E "^$1=" "$existing_env" | head -1 | cut -d= -f2- || true; }
 WEB_PORT="$(env_val WEB_PORT)" MAILPIT_PORT="$(env_val MAILPIT_PORT)" SHELL_PORT="$(env_val SHELL_PORT)"
 kivuli_running=0
-command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^kivuli-web-1$' && kivuli_running=1
+command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${COMPOSE_PROJECT_NAME:-kivuli}-web-1$" && kivuli_running=1
 pick() { # keep $1 if this install already uses it (Kivuli is running) or it is free; else the next free from $2
 	if [ -n "$1" ] && { [ "$kivuli_running" = 1 ] || [ -z "$(port_owner "$1")" ]; }; then echo "$1"; else free_port "$2" "${3:-}"; fi
 }
