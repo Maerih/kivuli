@@ -171,7 +171,8 @@ def walk(routes, hosts=()):
         for h in r.get("handle", []):
             if h.get("handler") == "reverse_proxy":
                 for u in h.get("upstreams", []): [print(x, u.get("dial", "")) for x in hs]
-            if h.get("handler") == "subroute": walk(h.get("routes"), hs)
+            elif h.get("handler") == "subroute": walk(h.get("routes"), hs)
+            else: [print(x, "-") for x in hs]  # served some other way (files, a fixed answer, a redirect)
 cfg = json.load(sys.stdin)
 for srv in cfg.get("apps", {}).get("http", {}).get("servers", {}).values(): walk(srv.get("routes"))
 ' 2>/dev/null || true
@@ -179,7 +180,8 @@ for srv in cfg.get("apps", {}).get("http", {}).get("servers", {}).values(): walk
 if [ "$FRONT" = caddyhost ]; then
 	served="$(caddy_hosts | awk '{ print $1 }' | sort -u | tr '\n' ' ')"
 	[ -n "$served" ] && ok "Caddy already serves: $served"
-	ours="$(caddy_hosts | awk -v d="$DOMAIN" '$1 == d { print $2 }' | sort -u | tr '\n' ' ')"
+	ours="$(caddy_hosts | awk -v d="$DOMAIN" '$1 == d && $2 != "-" { print $2 }' | sort -u | tr '\n' ' ')"
+	[ -z "$ours" ] && caddy_hosts | awk -v d="$DOMAIN" '$1 == d' | grep -q . && ours="(not a proxy)"
 	if [ -n "$ours" ]; then
 		if [ -f "$CADDY_SITE" ]; then ok "$DOMAIN is Kivuli's own Caddy site from an earlier install: it will be rewritten"
 		elif echo " $ours " | grep -q " 127.0.0.1:$WEB_PORT \| localhost:$WEB_PORT "; then ok "Caddy already sends $DOMAIN to Kivuli ($ours): kept as it is"; caddy_ready=1
@@ -266,6 +268,7 @@ fi
 cd "$DIR"
 
 say "Configuring"
+had_env=0; [ -f .env ] && had_env=1
 ./ctl.sh init >/dev/null
 first_install=0
 grep -q '^BOOTSTRAP_ADMIN_EMAIL=admin@kivuli.local$' .env && first_install=1
@@ -276,7 +279,7 @@ if [ "$SHARED_SIZING" = 1 ]; then
 	./ctl.sh set SEARCH_HEAP=512m CRAWLER_CONCURRENCY=3 PIPELINE_CONCURRENCY=2 RENDER_CONCURRENCY=1
 	ok "Sized for a shared server (change later with ./ctl.sh set SEARCH_HEAP=... CRAWLER_CONCURRENCY=...)"
 fi
-ok "Settings written to $DIR/.env (secrets generated on first install)"
+[ "$had_env" = 1 ] && ok "Settings updated in $DIR/.env (existing secrets, ports and data kept)" || ok "Settings written to $DIR/.env (secrets generated)"
 
 say "Building and starting Kivuli (the first build takes several minutes)"
 ./ctl.sh start
