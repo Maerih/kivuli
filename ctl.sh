@@ -126,7 +126,8 @@ build_images() {
 		# Parallel, checksum-verified download of the pinned dependencies; a no-op
 		# when they are already there. Without python3 (or if it fails) the image
 		# build simply downloads them itself.
-		if command -v python3 >/dev/null 2>&1; then
+		# Off on servers (install.sh sets KIVULI_PREFETCH=0): their networks download normally.
+		if command -v python3 >/dev/null 2>&1 && [ "${KIVULI_PREFETCH:-$(env_get KIVULI_PREFETCH || true)}" != 0 ]; then
 			case "$img" in
 				kivuli-backend) python3 tools/fetch_deps.py wheels || echo "Prefetch failed; the image build will download dependencies itself." ;;
 				kivuli-web) python3 tools/fetch_deps.py npm || echo "Prefetch failed; the image build will download dependencies itself." ;;

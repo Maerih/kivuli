@@ -18,6 +18,7 @@ Standard library only, so it runs on the host without installing anything.
 import argparse
 import base64
 import hashlib
+import http.client
 import json
 import os
 import platform
@@ -43,7 +44,8 @@ def request(url: str, headers: dict | None = None, method: str = "GET", attempts
             req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})}, method=method)
             with urllib.request.urlopen(req, timeout=90) as resp:
                 return resp.read(), resp.headers
-        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as exc:
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError, http.client.HTTPException) as exc:
+            # HTTPException covers IncompleteRead: a connection dropped mid-chunk is retried like any other.
             last = exc
             time.sleep(min(20, 1.5 * (attempt + 1)))
     raise RuntimeError(f"giving up on {url}: {last!r}")
@@ -254,4 +256,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except Exception as exc:  # one line, not a traceback: the image build downloads the same pins itself
+        print(f"prefetch stopped: {exc}", file=sys.stderr)
+        sys.exit(1)
